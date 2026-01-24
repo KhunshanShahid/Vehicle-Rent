@@ -1,0 +1,95 @@
+
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { Vehicle, Booking, Customer, VehicleStatus, BookingStatus, PaymentStatus, Transaction, PaymentMethod, RentalSettings } from './types';
+
+interface RentFlowState {
+  vehicles: Vehicle[];
+  bookings: Booking[];
+  customers: Customer[];
+  transactions: Transaction[];
+  settings: RentalSettings;
+  draftBooking: { vehicleId?: string, date: string } | null;
+  
+  addVehicle: (v: Omit<Vehicle, 'id'>) => void;
+  bulkAddVehicles: (vs: Omit<Vehicle, 'id'>[]) => void;
+  updateVehicle: (id: string, v: Partial<Vehicle>) => void;
+  addBooking: (b: Omit<Booking, 'id'>) => void;
+  updateBooking: (id: string, b: Partial<Booking>) => void;
+  addCustomer: (c: Omit<Customer, 'id' | 'createdAt'>) => void;
+  addTransaction: (t: Omit<Transaction, 'id' | 'date'>) => void;
+  updateSettings: (s: Partial<RentalSettings>) => void;
+  setDraftBooking: (draft: { vehicleId?: string, date: string } | null) => void;
+}
+
+const defaultSettings: RentalSettings = {
+  taxRate: 15,
+  insuranceDailyRate: 15,
+  lateFeePerHour: 20,
+  currency: '$'
+};
+
+const initialVehicles: Vehicle[] = [
+  { id: 'v1', brand: 'Toyota', model: 'Camry', plateNumber: 'ABC-1234', category: 'Sedan', status: VehicleStatus.AVAILABLE, dailyRate: 50, maintenanceNotes: '', image: 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?q=80&w=400&h=300&auto=format&fit=crop', currentMileage: 12500, color: 'Silver' },
+  { id: 'v2', brand: 'Honda', model: 'CR-V', plateNumber: 'XYZ-5678', category: 'SUV', status: VehicleStatus.AVAILABLE, dailyRate: 75, maintenanceNotes: '', image: 'https://images.unsplash.com/photo-1594502184342-2e12f877aa73?q=80&w=400&h=300&auto=format&fit=crop', currentMileage: 45000, color: 'White' },
+  { id: 'v3', brand: 'BMW', model: '4 Series', plateNumber: 'LUX-99', category: 'Luxury', status: VehicleStatus.AVAILABLE, dailyRate: 180, maintenanceNotes: '', image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?q=80&w=400&h=300&auto=format&fit=crop', currentMileage: 5000, color: 'Black' },
+];
+
+export const useRentFlowStore = create<RentFlowState>()(
+  persist(
+    (set) => ({
+      vehicles: initialVehicles,
+      bookings: [],
+      customers: [],
+      transactions: [],
+      settings: defaultSettings,
+      draftBooking: null,
+
+      addVehicle: (v) => set((state) => ({ 
+        vehicles: [...state.vehicles, { ...v, id: Math.random().toString(36).substr(2, 9) }] 
+      })),
+
+      bulkAddVehicles: (vs) => set((state) => ({
+        vehicles: [
+          ...state.vehicles,
+          ...vs.map(v => ({ ...v, id: Math.random().toString(36).substr(2, 9) }))
+        ]
+      })),
+      
+      updateVehicle: (id, updates) => set((state) => ({
+        vehicles: state.vehicles.map(v => v.id === id ? { ...v, ...updates } : v)
+      })),
+
+      addBooking: (b) => set((state) => ({
+        bookings: [...state.bookings, { ...b, id: Math.random().toString(36).substr(2, 9) }]
+      })),
+
+      updateBooking: (id, updates) => set((state) => ({
+        bookings: state.bookings.map(b => b.id === id ? { ...b, ...updates } : b)
+      })),
+
+      addCustomer: (c) => set((state) => ({
+        customers: [...state.customers, { 
+          ...c, 
+          id: Math.random().toString(36).substr(2, 9),
+          createdAt: new Date().toISOString() 
+        }]
+      })),
+
+      addTransaction: (t) => set((state) => ({
+        transactions: [...state.transactions, { 
+          ...t, 
+          id: Math.random().toString(36).substr(2, 9),
+          date: new Date().toISOString() 
+        }]
+      })),
+
+      updateSettings: (s) => set((state) => ({
+        settings: { ...state.settings, ...s }
+      })),
+
+      setDraftBooking: (draft) => set({ draftBooking: draft }),
+    }),
+    { name: 'rentflow-v3' }
+  )
+);

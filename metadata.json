@@ -1,0 +1,7 @@
+{
+  "name": "RentFlow",
+  "description": "A comprehensive SaaS car rental management system for small businesses featuring vehicle tracking, booking management, and availability calendars.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
