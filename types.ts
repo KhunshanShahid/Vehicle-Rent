@@ -37,6 +37,9 @@ export interface RentalSettings {
   insuranceDailyRate: number;
   lateFeePerHour: number;
   currency: string;
+  companyName: string;
+  companyEmail: string;
+  companyAddress: string;
 }
 
 export interface Transaction {
@@ -61,6 +64,7 @@ export interface Vehicle {
   image: string;
   currentMileage: number;
   color: string;
+  colorHex: string;
 }
 
 export interface Customer {
@@ -69,6 +73,7 @@ export interface Customer {
   email: string;
   phone: string;
   licenseNumber: string;
+  licenseExpiry: string;
   notes: string;
   createdAt: string;
 }
@@ -98,4 +103,5 @@ export interface Booking {
   startFuelLevel?: string;
   endMileage?: number;
   endFuelLevel?: string;
+  contractSignedDate?: string;
 }

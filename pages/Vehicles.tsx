@@ -36,7 +36,8 @@ const Vehicles: React.FC = () => {
     dailyRate: 0,
     maintenanceNotes: '',
     image: '',
-    color: 'Silver'
+    color: 'Silver',
+    colorHex: '#C0C0C0'
   });
 
   const filteredVehicles = vehicles.filter(v => {
@@ -59,7 +60,8 @@ const Vehicles: React.FC = () => {
       dailyRate: 0,
       maintenanceNotes: '',
       image: 'https://picsum.photos/seed/' + Math.random() + '/400/300',
-      color: 'Silver'
+      color: 'Silver',
+      colorHex: '#C0C0C0'
     });
     setIsModalOpen(true);
   };
@@ -84,7 +86,7 @@ const Vehicles: React.FC = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Brand', 'Model', 'Plate Number', 'Category', 'Status', 'Daily Rate', 'Mileage', 'Color', 'Maintenance Notes', 'Image URL'];
+    const headers = ['Brand', 'Model', 'Plate Number', 'Category', 'Status', 'Daily Rate', 'Mileage', 'Color', 'ColorHex', 'Maintenance Notes', 'Image URL'];
     const rows = vehicles.map(v => [
       v.brand,
       v.model,
@@ -94,6 +96,7 @@ const Vehicles: React.FC = () => {
       v.dailyRate,
       v.currentMileage,
       v.color,
+      v.colorHex,
       v.maintenanceNotes.replace(/,/g, ';'), // Replace commas to avoid breaking CSV
       v.image
     ]);
@@ -124,7 +127,6 @@ const Vehicles: React.FC = () => {
       const lines = text.split('\n');
       const newVehicles: Omit<Vehicle, 'id'>[] = [];
 
-      // Assume first line is header
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
@@ -141,8 +143,9 @@ const Vehicles: React.FC = () => {
           dailyRate: Number(parts[5]) || 50,
           currentMileage: Number(parts[6]) || 0,
           color: parts[7] || 'Silver',
-          maintenanceNotes: parts[8] || '',
-          image: parts[9] || 'https://picsum.photos/seed/' + Math.random() + '/400/300'
+          colorHex: parts[8] || '#C0C0C0',
+          maintenanceNotes: parts[9] || '',
+          image: parts[10] || 'https://picsum.photos/seed/' + Math.random() + '/400/300'
         });
       }
 
@@ -152,7 +155,6 @@ const Vehicles: React.FC = () => {
       }
     };
     reader.readAsText(file);
-    // Reset file input
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -253,8 +255,8 @@ const Vehicles: React.FC = () => {
                 <div className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-lg text-blue-600">
                   <Settings size={18} />
                 </div>
-                <div className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-lg text-gray-600 flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full border border-gray-200" style={{ backgroundColor: vehicle.color.toLowerCase() }}></div>
+                <div className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-lg flex items-center justify-center">
+                   <div className="w-4 h-4 rounded-full border border-gray-200" style={{ backgroundColor: vehicle.colorHex }}></div>
                 </div>
               </div>
             </div>
@@ -269,7 +271,8 @@ const Vehicles: React.FC = () => {
                     <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold uppercase tracking-wider">
                       {vehicle.category}
                     </span>
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-wider">
+                      <div className="w-2 h-2 rounded-full border border-gray-300" style={{ backgroundColor: vehicle.colorHex }}></div>
                       {vehicle.color}
                     </span>
                   </div>
@@ -325,7 +328,6 @@ const Vehicles: React.FC = () => {
         ))}
       </div>
 
-      {/* Add/Edit Vehicle Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -401,9 +403,9 @@ const Vehicles: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Color</label>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Color Name</label>
                   <div className="relative">
                     <Palette className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <input 
@@ -417,22 +419,37 @@ const Vehicles: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Daily Rate ({settings.currency})</label>
-                  <input 
-                    required 
-                    type="number" 
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-blue-600" 
-                    placeholder="50"
-                    value={formState.dailyRate}
-                    onChange={e => setFormState({...formState, dailyRate: Number(e.target.value)})} 
-                  />
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Display Color (Visual)</label>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="color" 
+                      className="w-12 h-[42px] border-2 border-gray-200 rounded-xl bg-white p-1 cursor-pointer"
+                      value={formState.colorHex}
+                      onChange={e => setFormState({...formState, colorHex: e.target.value})}
+                    />
+                    <div className="flex-1 px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl font-mono text-xs text-gray-500 uppercase flex items-center">
+                      {formState.colorHex}
+                    </div>
+                  </div>
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Daily Rate ({settings.currency})</label>
+                <input 
+                  required 
+                  type="number" 
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-blue-600" 
+                  placeholder="50"
+                  value={formState.dailyRate}
+                  onChange={e => setFormState({...formState, dailyRate: Number(e.target.value)})} 
+                />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Maintenance & Damage Notes</label>
                 <textarea 
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium min-h-[100px] resize-none" 
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium min-h-[80px] resize-none" 
                   placeholder="Record any scratches, dent locations, or upcoming service requirements..."
                   value={formState.maintenanceNotes}
                   onChange={e => setFormState({...formState, maintenanceNotes: e.target.value})} 

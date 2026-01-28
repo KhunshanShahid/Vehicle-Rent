@@ -26,13 +26,18 @@ const defaultSettings: RentalSettings = {
   taxRate: 15,
   insuranceDailyRate: 15,
   lateFeePerHour: 20,
-  currency: '$'
+  currency: '$',
+  companyName: 'RentFlow Elite Fleet',
+  companyEmail: 'ops@rentflow.io',
+  companyAddress: '123 Enterprise Way, Silicon Valley, CA'
 };
 
 const initialVehicles: Vehicle[] = [
-  { id: 'v1', brand: 'Toyota', model: 'Camry', plateNumber: 'ABC-1234', category: 'Sedan', status: VehicleStatus.AVAILABLE, dailyRate: 50, maintenanceNotes: '', image: 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?q=80&w=400&h=300&auto=format&fit=crop', currentMileage: 12500, color: 'Silver' },
-  { id: 'v2', brand: 'Honda', model: 'CR-V', plateNumber: 'XYZ-5678', category: 'SUV', status: VehicleStatus.AVAILABLE, dailyRate: 75, maintenanceNotes: '', image: 'https://images.unsplash.com/photo-1594502184342-2e12f877aa73?q=80&w=400&h=300&auto=format&fit=crop', currentMileage: 45000, color: 'White' },
-  { id: 'v3', brand: 'BMW', model: '4 Series', plateNumber: 'LUX-99', category: 'Luxury', status: VehicleStatus.AVAILABLE, dailyRate: 180, maintenanceNotes: '', image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?q=80&w=400&h=300&auto=format&fit=crop', currentMileage: 5000, color: 'Black' },
+  { id: 'v1', brand: 'Toyota', model: 'Camry', plateNumber: 'ABC-1234', category: 'Sedan', status: VehicleStatus.AVAILABLE, dailyRate: 50, maintenanceNotes: '', image: 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?q=80&w=400&h=300&auto=format&fit=crop', currentMileage: 12500, color: 'Silver', colorHex: '#C0C0C0' },
+  { id: 'v2', brand: 'Honda', model: 'CR-V', plateNumber: 'XYZ-5678', category: 'SUV', status: VehicleStatus.AVAILABLE, dailyRate: 75, maintenanceNotes: '', image: 'https://images.unsplash.com/photo-1594502184342-2e12f877aa73?q=80&w=400&h=300&auto=format&fit=crop', currentMileage: 45000, color: 'White', colorHex: '#FFFFFF' },
+  { id: 'v3', brand: 'BMW', model: '4 Series', plateNumber: 'LUX-99', category: 'Luxury', status: VehicleStatus.AVAILABLE, dailyRate: 180, maintenanceNotes: '', image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?q=80&w=400&h=300&auto=format&fit=crop', currentMileage: 5000, color: 'Black', colorHex: '#000000' },
+  { id: 'v4', brand: 'Tesla', model: 'Model 3', plateNumber: 'EV-442', category: 'Luxury', status: VehicleStatus.AVAILABLE, dailyRate: 120, maintenanceNotes: '', image: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?q=80&w=400&h=300&auto=format&fit=crop', currentMileage: 2100, color: 'Red', colorHex: '#FF0000' },
+  { id: 'v5', brand: 'Ford', model: 'F-150', plateNumber: 'TRK-001', category: 'Pickup', status: VehicleStatus.AVAILABLE, dailyRate: 90, maintenanceNotes: '', image: 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?q=80&w=400&h=300&auto=format&fit=crop', currentMileage: 18500, color: 'Blue', colorHex: '#0000FF' },
 ];
 
 export const useRentFlowStore = create<RentFlowState>()(
@@ -90,6 +95,6 @@ export const useRentFlowStore = create<RentFlowState>()(
 
       setDraftBooking: (draft) => set({ draftBooking: draft }),
     }),
-    { name: 'rentflow-v3' }
+    { name: 'rentflow-saas-v1' }
   )
 );
