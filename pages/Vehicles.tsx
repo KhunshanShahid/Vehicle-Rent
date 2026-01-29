@@ -12,10 +12,24 @@ import {
   Palette,
   Download,
   Upload,
-  FileText
+  Calendar,
+  Tool,
+  Clock,
+  History
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
 import { VehicleStatus, Vehicle } from '../types';
+
+const SERVICE_TYPES = [
+  'Oil Change',
+  'Brake Inspection',
+  'Tire Rotation',
+  'Full Service',
+  'Battery Check',
+  'AC Service',
+  'Emission Test',
+  'Other'
+];
 
 const Vehicles: React.FC = () => {
   const { vehicles, addVehicle, bulkAddVehicles, updateVehicle, settings } = useRentFlowStore();
@@ -37,7 +51,10 @@ const Vehicles: React.FC = () => {
     maintenanceNotes: '',
     image: '',
     color: 'Silver',
-    colorHex: '#C0C0C0'
+    colorHex: '#C0C0C0',
+    lastServiceDate: '',
+    nextServiceDate: '',
+    nextServiceType: 'Oil Change'
   });
 
   const filteredVehicles = vehicles.filter(v => {
@@ -61,7 +78,10 @@ const Vehicles: React.FC = () => {
       maintenanceNotes: '',
       image: 'https://picsum.photos/seed/' + Math.random() + '/400/300',
       color: 'Silver',
-      colorHex: '#C0C0C0'
+      colorHex: '#C0C0C0',
+      lastServiceDate: new Date().toISOString().split('T')[0],
+      nextServiceDate: '',
+      nextServiceType: 'Oil Change'
     });
     setIsModalOpen(true);
   };
@@ -86,7 +106,7 @@ const Vehicles: React.FC = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Brand', 'Model', 'Plate Number', 'Category', 'Status', 'Daily Rate', 'Mileage', 'Color', 'ColorHex', 'Maintenance Notes', 'Image URL'];
+    const headers = ['Brand', 'Model', 'Plate Number', 'Category', 'Status', 'Daily Rate', 'Mileage', 'Color', 'ColorHex', 'Maintenance Notes', 'Image URL', 'Last Service', 'Next Service', 'Service Type'];
     const rows = vehicles.map(v => [
       v.brand,
       v.model,
@@ -97,8 +117,11 @@ const Vehicles: React.FC = () => {
       v.currentMileage,
       v.color,
       v.colorHex,
-      v.maintenanceNotes.replace(/,/g, ';'), // Replace commas to avoid breaking CSV
-      v.image
+      v.maintenanceNotes.replace(/,/g, ';'),
+      v.image,
+      v.lastServiceDate || '',
+      v.nextServiceDate || '',
+      v.nextServiceType || ''
     ]);
 
     const csvContent = [
@@ -145,7 +168,10 @@ const Vehicles: React.FC = () => {
           color: parts[7] || 'Silver',
           colorHex: parts[8] || '#C0C0C0',
           maintenanceNotes: parts[9] || '',
-          image: parts[10] || 'https://picsum.photos/seed/' + Math.random() + '/400/300'
+          image: parts[10] || 'https://picsum.photos/seed/' + Math.random() + '/400/300',
+          lastServiceDate: parts[11] || '',
+          nextServiceDate: parts[12] || '',
+          nextServiceType: parts[13] || 'Oil Change'
         });
       }
 
@@ -156,6 +182,18 @@ const Vehicles: React.FC = () => {
     };
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const getMaintenanceHealth = (v: Vehicle) => {
+    if (!v.nextServiceDate) return { label: 'Unknown', color: 'gray', overdue: false };
+    const next = new Date(v.nextServiceDate);
+    const now = new Date();
+    const diff = next.getTime() - now.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+    if (days < 0) return { label: `${Math.abs(days)}d Overdue`, color: 'red', overdue: true };
+    if (days <= 7) return { label: `Due in ${days}d`, color: 'amber', overdue: false };
+    return { label: `Service in ${days}d`, color: 'emerald', overdue: false };
   };
 
   const statusColors = {
@@ -170,7 +208,7 @@ const Vehicles: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Vehicle Fleet</h1>
-          <p className="text-gray-500">Manage your rental inventory and maintenance.</p>
+          <p className="text-gray-500">Manage your rental inventory and maintenance schedules.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input 
@@ -233,111 +271,118 @@ const Vehicles: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredVehicles.map((vehicle) => (
-          <div 
-            key={vehicle.id} 
-            onClick={() => openEditModal(vehicle)}
-            className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer relative"
-          >
-            <div className="relative h-52">
-              <img src={vehicle.image} alt={vehicle.model} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
-                <p className="text-white text-sm font-bold flex items-center gap-2">
-                  <Edit3 size={16} /> Click to edit details
-                </p>
-              </div>
-              <div className="absolute top-4 left-4">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold border shadow-sm ${statusColors[vehicle.status]}`}>
-                  {vehicle.status}
-                </span>
-              </div>
-              <div className="absolute top-4 right-4 flex flex-col gap-2">
-                <div className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-lg text-blue-600">
-                  <Settings size={18} />
-                </div>
-                <div className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-lg flex items-center justify-center">
-                   <div className="w-4 h-4 rounded-full border border-gray-200" style={{ backgroundColor: vehicle.colorHex }}></div>
-                </div>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="flex justify-between items-start">
-                <div className="min-w-0">
-                  <h3 className="text-lg font-bold text-gray-900 truncate">{vehicle.brand} {vehicle.model}</h3>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <span className="text-xs font-mono text-gray-400 uppercase bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                      {vehicle.plateNumber}
-                    </span>
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold uppercase tracking-wider">
-                      {vehicle.category}
-                    </span>
-                    <span className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-wider">
-                      <div className="w-2 h-2 rounded-full border border-gray-300" style={{ backgroundColor: vehicle.colorHex }}></div>
-                      {vehicle.color}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xl font-black text-blue-600">
-                    {settings.currency}{vehicle.dailyRate}
-                    <span className="text-[10px] text-gray-400 font-bold block uppercase tracking-tighter">per day</span>
+        {filteredVehicles.map((vehicle) => {
+          const health = getMaintenanceHealth(vehicle);
+          return (
+            <div 
+              key={vehicle.id} 
+              onClick={() => openEditModal(vehicle)}
+              className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer relative"
+            >
+              <div className="relative h-52">
+                <img src={vehicle.image} alt={vehicle.model} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
+                  <p className="text-white text-sm font-bold flex items-center gap-2">
+                    <Edit3 size={16} /> Click to edit details
                   </p>
                 </div>
-              </div>
-              
-              <div className="mt-4">
-                {vehicle.maintenanceNotes ? (
-                  <div className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-100 rounded-xl">
-                    <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
-                    <p className="text-[11px] text-amber-700 line-clamp-2 leading-relaxed">
-                      {vehicle.maintenanceNotes}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-emerald-600 text-[11px] font-bold uppercase tracking-wider">
-                    <CheckCircle size={14} /> Ready for rent
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-gray-50 flex items-center justify-between">
-                <div className="flex -space-x-2">
-                  <div className="h-6 w-6 rounded-full border-2 border-white bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600">KM</div>
-                  <div className="h-6 px-2 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-600">
-                    {vehicle.currentMileage.toLocaleString()}
+                <div className="absolute top-4 left-4 flex flex-col gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold border shadow-sm ${statusColors[vehicle.status]}`}>
+                    {vehicle.status}
+                  </span>
+                  {vehicle.nextServiceDate && (
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm bg-white 
+                      ${health.color === 'red' ? 'text-red-600 border-red-100' : 
+                        health.color === 'amber' ? 'text-amber-600 border-amber-100' : 'text-emerald-600 border-emerald-100'}`}>
+                      {health.label}
+                    </span>
+                  )}
+                </div>
+                <div className="absolute top-4 right-4 flex flex-col gap-2">
+                  <div className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-lg text-blue-600">
+                    <Settings size={18} />
                   </div>
                 </div>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    updateVehicle(vehicle.id, { 
-                      status: vehicle.status === VehicleStatus.AVAILABLE ? VehicleStatus.MAINTENANCE : VehicleStatus.AVAILABLE 
-                    });
-                  }}
-                  className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors border ${
-                    vehicle.status === VehicleStatus.MAINTENANCE 
-                      ? 'bg-emerald-600 text-white border-emerald-600' 
-                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                  }`}
-                >
-                  {vehicle.status === VehicleStatus.MAINTENANCE ? 'Finish Service' : 'Maint. Mode'}
-                </button>
+              </div>
+              <div className="p-6">
+                <div className="flex justify-between items-start">
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold text-gray-900 truncate">{vehicle.brand} {vehicle.model}</h3>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <span className="text-xs font-mono text-gray-400 uppercase bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                        {vehicle.plateNumber}
+                      </span>
+                      <span className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-wider">
+                        <div className="w-2 h-2 rounded-full border border-gray-300" style={{ backgroundColor: vehicle.colorHex }}></div>
+                        {vehicle.color}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xl font-black text-blue-600">
+                      {settings.currency}{vehicle.dailyRate}
+                      <span className="text-[10px] text-gray-400 font-bold block uppercase tracking-tighter">per day</span>
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mt-4 space-y-2">
+                  {vehicle.maintenanceNotes && (
+                    <div className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-100 rounded-xl">
+                      <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                      <p className="text-[11px] text-amber-700 line-clamp-2 leading-relaxed">
+                        {vehicle.maintenanceNotes}
+                      </p>
+                    </div>
+                  )}
+                  {vehicle.nextServiceDate && (
+                    <div className="flex items-center justify-between p-2 bg-gray-50 border border-gray-100 rounded-xl">
+                       <div className="flex items-center gap-2">
+                         <Calendar size={14} className="text-gray-400" />
+                         <span className="text-[11px] font-bold text-gray-600">Next: {vehicle.nextServiceDate}</span>
+                       </div>
+                       <span className="text-[10px] font-black uppercase text-blue-500">{vehicle.nextServiceType}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-gray-50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-full border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] font-bold text-gray-600">KM</div>
+                    <span className="text-xs font-bold text-gray-900">{vehicle.currentMileage.toLocaleString()}</span>
+                  </div>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateVehicle(vehicle.id, { 
+                        status: vehicle.status === VehicleStatus.AVAILABLE ? VehicleStatus.MAINTENANCE : VehicleStatus.AVAILABLE 
+                      });
+                    }}
+                    className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors border ${
+                      vehicle.status === VehicleStatus.MAINTENANCE 
+                        ? 'bg-emerald-600 text-white border-emerald-600' 
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {vehicle.status === VehicleStatus.MAINTENANCE ? 'Complete Svc' : 'Service Mode'}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">
                   {modalMode === 'add' ? 'Register New Vehicle' : 'Edit Vehicle Details'}
                 </h3>
                 <p className="text-xs text-gray-500 font-medium mt-0.5">
-                  {modalMode === 'add' ? 'Enter primary vehicle information.' : `Updating ${formState.brand} ${formState.model}`}
+                  Vehicle specs and maintenance schedule.
                 </p>
               </div>
               <button 
@@ -348,118 +393,72 @@ const Vehicles: React.FC = () => {
               </button>
             </div>
             
-            <form onSubmit={handleSaveVehicle} className="p-8 space-y-5">
+            <form onSubmit={handleSaveVehicle} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Brand</label>
-                  <input 
-                    required 
-                    type="text" 
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" 
-                    placeholder="e.g., Toyota" 
-                    value={formState.brand}
-                    onChange={e => setFormState({...formState, brand: e.target.value})} 
-                  />
+                  <input required type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" 
+                    value={formState.brand} onChange={e => setFormState({...formState, brand: e.target.value})} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Model</label>
-                  <input 
-                    required 
-                    type="text" 
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" 
-                    placeholder="e.g., Camry"
-                    value={formState.model}
-                    onChange={e => setFormState({...formState, model: e.target.value})} 
-                  />
+                  <input required type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" 
+                    value={formState.model} onChange={e => setFormState({...formState, model: e.target.value})} />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Plate Number</label>
-                  <input 
-                    required 
-                    type="text" 
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono font-bold" 
-                    placeholder="ABC-1234"
-                    value={formState.plateNumber}
-                    onChange={e => setFormState({...formState, plateNumber: e.target.value})} 
-                  />
+                  <input required type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none font-mono font-bold" 
+                    value={formState.plateNumber} onChange={e => setFormState({...formState, plateNumber: e.target.value})} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Category</label>
-                  <select 
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-                    value={formState.category}
-                    onChange={e => setFormState({...formState, category: e.target.value})}
-                  >
-                    <option>Sedan</option>
-                    <option>SUV</option>
-                    <option>Compact</option>
-                    <option>Luxury</option>
-                    <option>Pickup</option>
-                    <option>Van</option>
-                  </select>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Mileage (KM)</label>
+                  <input required type="number" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" 
+                    value={formState.currentMileage} onChange={e => setFormState({...formState, currentMileage: Number(e.target.value)})} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Color Name</label>
-                  <div className="relative">
-                    <Palette className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                    <input 
-                      required 
-                      type="text" 
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" 
-                      placeholder="e.g., Pearl White"
-                      value={formState.color}
-                      onChange={e => setFormState({...formState, color: e.target.value})} 
-                    />
+              <div className="p-6 bg-blue-50/50 border border-blue-100 rounded-2xl space-y-4">
+                <h4 className="text-sm font-black text-blue-900 uppercase flex items-center gap-2">
+                  <Clock size={16} /> Maintenance Schedule
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Last Service</label>
+                    <input type="date" className="w-full px-4 py-2 bg-white border border-blue-100 rounded-xl outline-none text-sm font-bold"
+                      value={formState.lastServiceDate} onChange={e => setFormState({...formState, lastServiceDate: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Next Service</label>
+                    <input type="date" className="w-full px-4 py-2 bg-white border border-blue-100 rounded-xl outline-none text-sm font-bold"
+                      value={formState.nextServiceDate} onChange={e => setFormState({...formState, nextServiceDate: e.target.value})} />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Display Color (Visual)</label>
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="color" 
-                      className="w-12 h-[42px] border-2 border-gray-200 rounded-xl bg-white p-1 cursor-pointer"
-                      value={formState.colorHex}
-                      onChange={e => setFormState({...formState, colorHex: e.target.value})}
-                    />
-                    <div className="flex-1 px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl font-mono text-xs text-gray-500 uppercase flex items-center">
-                      {formState.colorHex}
-                    </div>
-                  </div>
+                  <label className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Service Type</label>
+                  <select className="w-full px-4 py-2 bg-white border border-blue-100 rounded-xl outline-none text-sm font-bold"
+                    value={formState.nextServiceType} onChange={e => setFormState({...formState, nextServiceType: e.target.value})}>
+                    {SERVICE_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                  </select>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Daily Rate ({settings.currency})</label>
-                <input 
-                  required 
-                  type="number" 
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-blue-600" 
-                  placeholder="50"
-                  value={formState.dailyRate}
-                  onChange={e => setFormState({...formState, dailyRate: Number(e.target.value)})} 
-                />
+                <input required type="number" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none font-bold text-blue-600" 
+                  value={formState.dailyRate} onChange={e => setFormState({...formState, dailyRate: Number(e.target.value)})} />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Maintenance & Damage Notes</label>
-                <textarea 
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium min-h-[80px] resize-none" 
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Maintenance Notes</label>
+                <textarea className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium min-h-[80px] resize-none" 
                   placeholder="Record any scratches, dent locations, or upcoming service requirements..."
-                  value={formState.maintenanceNotes}
-                  onChange={e => setFormState({...formState, maintenanceNotes: e.target.value})} 
-                />
+                  value={formState.maintenanceNotes} onChange={e => setFormState({...formState, maintenanceNotes: e.target.value})} />
               </div>
 
-              <button 
-                type="submit" 
-                className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl mt-4 hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all transform active:scale-[0.98]"
-              >
+              <button type="submit" className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all">
                 {modalMode === 'add' ? 'Register Vehicle' : 'Save Changes'}
               </button>
             </form>

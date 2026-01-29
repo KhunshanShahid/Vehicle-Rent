@@ -65,6 +65,10 @@ export interface Vehicle {
   currentMileage: number;
   color: string;
   colorHex: string;
+  // Maintenance tracking
+  lastServiceDate?: string;
+  nextServiceDate?: string;
+  nextServiceType?: string;
 }
 
 export interface Customer {

@@ -6,7 +6,8 @@ import {
   Clock, 
   TrendingUp, 
   AlertCircle,
-  Zap
+  Zap,
+  Tool
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
 import { VehicleStatus, BookingStatus } from '../types';
@@ -17,6 +18,13 @@ const Dashboard: React.FC<{ setActiveTab: (t: string) => void }> = ({ setActiveT
 
   const activeBookings = bookings.filter(b => b.status === BookingStatus.ACTIVE);
   const totalRentedVehicles = activeBookings.reduce((sum, b) => sum + b.vehicleIds.length, 0);
+
+  // Find vehicle with nearest maintenance
+  const vehiclesWithNextService = vehicles
+    .filter(v => v.nextServiceDate)
+    .sort((a, b) => new Date(a.nextServiceDate!).getTime() - new Date(b.nextServiceDate!).getTime());
+  
+  const criticalMaintenance = vehiclesWithNextService[0];
 
   const handleQuickAdd = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -146,41 +154,59 @@ const Dashboard: React.FC<{ setActiveTab: (t: string) => void }> = ({ setActiveT
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-gray-900">Recent Activity</h3>
-            <button className="text-sm text-blue-600 font-medium hover:underline">View All</button>
-          </div>
-          <div className="space-y-6">
-            {bookings.slice(0, 4).map((booking) => {
-              const customer = customers.find(c => c.id === booking.customerId);
-              return (
-                <div key={booking.id} className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                    <Car size={20} />
+        <div className="flex flex-col gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold text-gray-900">Recent Activity</h3>
+              <button className="text-sm text-blue-600 font-medium hover:underline">View All</button>
+            </div>
+            <div className="space-y-6">
+              {bookings.slice(0, 3).map((booking) => {
+                const customer = customers.find(c => c.id === booking.customerId);
+                return (
+                  <div key={booking.id} className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                      <Car size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{customer?.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{booking.vehicleIds.length} Vehicles · {booking.fromLocation}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-900">${booking.totalAmount}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{customer?.name}</p>
-                    <p className="text-xs text-gray-500 truncate">{booking.vehicleIds.length} Vehicles · {booking.fromLocation} → {booking.toLocation}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-gray-900">${booking.totalAmount}</p>
-                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
-                      booking.status === BookingStatus.ACTIVE ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-gray-600'
-                    }`}>
-                      {booking.status}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
-          <div className="mt-8 p-4 bg-amber-50 rounded-xl border border-amber-100 flex gap-3">
-            <AlertCircle className="text-amber-600 shrink-0" size={20} />
-            <div>
-              <p className="text-sm font-semibold text-amber-900">Maintenance Due</p>
-              <p className="text-xs text-amber-700 mt-0.5">Toyota Camry needs service soon.</p>
+          <div 
+            onClick={() => setActiveTab('vehicles')}
+            className={`p-6 rounded-2xl border shadow-sm cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${
+              criticalMaintenance && new Date(criticalMaintenance.nextServiceDate!).getTime() < new Date().getTime()
+                ? 'bg-red-50 border-red-100 text-red-900' 
+                : 'bg-amber-50 border-amber-100 text-amber-900'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <AlertCircle className={criticalMaintenance && new Date(criticalMaintenance.nextServiceDate!).getTime() < new Date().getTime() ? 'text-red-600' : 'text-amber-600'} size={24} />
+              <h3 className="font-bold">Maintenance Alert</h3>
+            </div>
+            {criticalMaintenance ? (
+              <div>
+                <p className="text-sm font-semibold">{criticalMaintenance.brand} {criticalMaintenance.model}</p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs opacity-75">{criticalMaintenance.nextServiceType} scheduled</p>
+                  <p className="text-xs font-black uppercase tracking-widest">{criticalMaintenance.nextServiceDate}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs">No upcoming maintenance detected.</p>
+            )}
+            <div className="mt-4 pt-4 border-t border-current border-opacity-10 flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
+              <span>View Fleet Schedule</span>
+              <Tool size={14} />
             </div>
           </div>
         </div>
