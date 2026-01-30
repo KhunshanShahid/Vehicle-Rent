@@ -13,12 +13,13 @@ import {
   Download,
   Upload,
   Calendar,
-  Tool,
+  Wrench,
   Clock,
-  History
+  History,
+  Tag
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
-import { VehicleStatus, Vehicle } from '../types';
+import { VehicleStatus, Vehicle, VehicleCategory } from '../types';
 
 const SERVICE_TYPES = [
   'Oil Change',
@@ -31,6 +32,8 @@ const SERVICE_TYPES = [
   'Other'
 ];
 
+const VEHICLE_CATEGORIES = Object.values(VehicleCategory);
+
 const Vehicles: React.FC = () => {
   const { vehicles, addVehicle, bulkAddVehicles, updateVehicle, settings } = useRentFlowStore();
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,12 +43,11 @@ const Vehicles: React.FC = () => {
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Form State
   const [formState, setFormState] = useState<Partial<Vehicle>>({
     brand: '',
     model: '',
     plateNumber: '',
-    category: 'Sedan',
+    category: VehicleCategory.SEDAN,
     status: VehicleStatus.AVAILABLE,
     dailyRate: 0,
     maintenanceNotes: '',
@@ -54,7 +56,8 @@ const Vehicles: React.FC = () => {
     colorHex: '#C0C0C0',
     lastServiceDate: '',
     nextServiceDate: '',
-    nextServiceType: 'Oil Change'
+    nextServiceType: 'Oil Change',
+    currentMileage: 0
   });
 
   const filteredVehicles = vehicles.filter(v => {
@@ -72,7 +75,7 @@ const Vehicles: React.FC = () => {
       brand: '',
       model: '',
       plateNumber: '',
-      category: 'Sedan',
+      category: VehicleCategory.SEDAN,
       status: VehicleStatus.AVAILABLE,
       dailyRate: 0,
       maintenanceNotes: '',
@@ -81,7 +84,8 @@ const Vehicles: React.FC = () => {
       colorHex: '#C0C0C0',
       lastServiceDate: new Date().toISOString().split('T')[0],
       nextServiceDate: '',
-      nextServiceType: 'Oil Change'
+      nextServiceType: 'Oil Change',
+      currentMileage: 0
     });
     setIsModalOpen(true);
   };
@@ -103,85 +107,6 @@ const Vehicles: React.FC = () => {
       }
       setIsModalOpen(false);
     }
-  };
-
-  const exportToCSV = () => {
-    const headers = ['Brand', 'Model', 'Plate Number', 'Category', 'Status', 'Daily Rate', 'Mileage', 'Color', 'ColorHex', 'Maintenance Notes', 'Image URL', 'Last Service', 'Next Service', 'Service Type'];
-    const rows = vehicles.map(v => [
-      v.brand,
-      v.model,
-      v.plateNumber,
-      v.category,
-      v.status,
-      v.dailyRate,
-      v.currentMileage,
-      v.color,
-      v.colorHex,
-      v.maintenanceNotes.replace(/,/g, ';'),
-      v.image,
-      v.lastServiceDate || '',
-      v.nextServiceDate || '',
-      v.nextServiceType || ''
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(r => r.join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `rentflow_fleet_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split('\n');
-      const newVehicles: Omit<Vehicle, 'id'>[] = [];
-
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        const parts = line.split(',');
-        if (parts.length < 4) continue;
-
-        newVehicles.push({
-          brand: parts[0] || 'Unknown',
-          model: parts[1] || 'Unknown',
-          plateNumber: parts[2] || 'TBD-' + Math.floor(Math.random() * 1000),
-          category: parts[3] || 'Sedan',
-          status: (parts[4] as VehicleStatus) || VehicleStatus.AVAILABLE,
-          dailyRate: Number(parts[5]) || 50,
-          currentMileage: Number(parts[6]) || 0,
-          color: parts[7] || 'Silver',
-          colorHex: parts[8] || '#C0C0C0',
-          maintenanceNotes: parts[9] || '',
-          image: parts[10] || 'https://picsum.photos/seed/' + Math.random() + '/400/300',
-          lastServiceDate: parts[11] || '',
-          nextServiceDate: parts[12] || '',
-          nextServiceType: parts[13] || 'Oil Change'
-        });
-      }
-
-      if (newVehicles.length > 0) {
-        bulkAddVehicles(newVehicles);
-        alert(`Successfully imported ${newVehicles.length} vehicles!`);
-      }
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const getMaintenanceHealth = (v: Vehicle) => {
@@ -211,27 +136,6 @@ const Vehicles: React.FC = () => {
           <p className="text-gray-500">Manage your rental inventory and maintenance schedules.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <input 
-            type="file" 
-            accept=".csv" 
-            ref={fileInputRef} 
-            onChange={handleImportCSV} 
-            className="hidden" 
-          />
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-all shadow-sm"
-          >
-            <Upload size={18} />
-            Import CSV
-          </button>
-          <button 
-            onClick={exportToCSV}
-            className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-all shadow-sm"
-          >
-            <Download size={18} />
-            Export CSV
-          </button>
           <button 
             onClick={openAddModal}
             className="flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
@@ -254,7 +158,7 @@ const Vehicles: React.FC = () => {
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
-          {['ALL', VehicleStatus.AVAILABLE, VehicleStatus.RENTED, VehicleStatus.MAINTENANCE].map((s) => (
+          {['ALL', ...Object.values(VehicleStatus)].map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s as any)}
@@ -290,19 +194,17 @@ const Vehicles: React.FC = () => {
                   <span className={`px-3 py-1 rounded-full text-xs font-bold border shadow-sm ${statusColors[vehicle.status]}`}>
                     {vehicle.status}
                   </span>
-                  {vehicle.nextServiceDate && (
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm bg-white 
-                      ${health.color === 'red' ? 'text-red-600 border-red-100' : 
-                        health.color === 'amber' ? 'text-amber-600 border-amber-100' : 'text-emerald-600 border-emerald-100'}`}>
-                      {health.label}
-                    </span>
-                  )}
+                  <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white border border-gray-200 text-gray-600 shadow-sm">
+                    {vehicle.category}
+                  </span>
                 </div>
-                <div className="absolute top-4 right-4 flex flex-col gap-2">
-                  <div className="p-2 bg-white/90 backdrop-blur rounded-xl shadow-lg text-blue-600">
-                    <Settings size={18} />
+                {vehicle.nextServiceDate && (
+                  <div className={`absolute bottom-4 right-4 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm bg-white 
+                    ${health.color === 'red' ? 'text-red-600 border-red-100' : 
+                      health.color === 'amber' ? 'text-amber-600 border-amber-100' : 'text-emerald-600 border-emerald-100'}`}>
+                    {health.label}
                   </div>
-                </div>
+                )}
               </div>
               <div className="p-6">
                 <div className="flex justify-between items-start">
@@ -311,10 +213,6 @@ const Vehicles: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                       <span className="text-xs font-mono text-gray-400 uppercase bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
                         {vehicle.plateNumber}
-                      </span>
-                      <span className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-wider">
-                        <div className="w-2 h-2 rounded-full border border-gray-300" style={{ backgroundColor: vehicle.colorHex }}></div>
-                        {vehicle.color}
                       </span>
                     </div>
                   </div>
@@ -349,7 +247,7 @@ const Vehicles: React.FC = () => {
                 <div className="mt-6 pt-4 border-t border-gray-50 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="h-6 w-6 rounded-full border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] font-bold text-gray-600">KM</div>
-                    <span className="text-xs font-bold text-gray-900">{vehicle.currentMileage.toLocaleString()}</span>
+                    <span className="text-xs font-bold text-gray-900">{vehicle.currentMileage?.toLocaleString() || 0}</span>
                   </div>
                   <button 
                     onClick={(e) => {
@@ -364,7 +262,7 @@ const Vehicles: React.FC = () => {
                         : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                     }`}
                   >
-                    {vehicle.status === VehicleStatus.MAINTENANCE ? 'Complete Svc' : 'Service Mode'}
+                    {vehicle.status === VehicleStatus.MAINTENANCE ? 'Ready' : 'Service'}
                   </button>
                 </div>
               </div>
@@ -382,7 +280,7 @@ const Vehicles: React.FC = () => {
                   {modalMode === 'add' ? 'Register New Vehicle' : 'Edit Vehicle Details'}
                 </h3>
                 <p className="text-xs text-gray-500 font-medium mt-0.5">
-                  Vehicle specs and maintenance schedule.
+                  Update specs and maintenance logs.
                 </p>
               </div>
               <button 
@@ -409,9 +307,24 @@ const Vehicles: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Category</label>
+                  <select className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none font-bold text-gray-700"
+                    value={formState.category} onChange={e => setFormState({...formState, category: e.target.value as VehicleCategory})}>
+                    {VEHICLE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Plate Number</label>
                   <input required type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none font-mono font-bold" 
                     value={formState.plateNumber} onChange={e => setFormState({...formState, plateNumber: e.target.value})} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Daily Rate ({settings.currency})</label>
+                  <input required type="number" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none font-bold text-blue-600" 
+                    value={formState.dailyRate} onChange={e => setFormState({...formState, dailyRate: Number(e.target.value)})} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Mileage (KM)</label>
@@ -422,7 +335,7 @@ const Vehicles: React.FC = () => {
 
               <div className="p-6 bg-blue-50/50 border border-blue-100 rounded-2xl space-y-4">
                 <h4 className="text-sm font-black text-blue-900 uppercase flex items-center gap-2">
-                  <Clock size={16} /> Maintenance Schedule
+                  <Wrench size={16} /> Maintenance Schedule
                 </h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -446,20 +359,14 @@ const Vehicles: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Daily Rate ({settings.currency})</label>
-                <input required type="number" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none font-bold text-blue-600" 
-                  value={formState.dailyRate} onChange={e => setFormState({...formState, dailyRate: Number(e.target.value)})} />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Maintenance Notes</label>
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Internal Maintenance Notes</label>
                 <textarea className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl outline-none font-medium min-h-[80px] resize-none" 
-                  placeholder="Record any scratches, dent locations, or upcoming service requirements..."
+                  placeholder="Record damages, scratches, or mechanic notes..."
                   value={formState.maintenanceNotes} onChange={e => setFormState({...formState, maintenanceNotes: e.target.value})} />
               </div>
 
               <button type="submit" className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all">
-                {modalMode === 'add' ? 'Register Vehicle' : 'Save Changes'}
+                {modalMode === 'add' ? 'Add Vehicle to Fleet' : 'Update Fleet Member'}
               </button>
             </form>
           </div>

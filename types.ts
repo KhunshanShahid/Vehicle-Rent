@@ -12,6 +12,16 @@ export enum VehicleStatus {
   UNAVAILABLE = 'UNAVAILABLE'
 }
 
+export enum VehicleCategory {
+  SEDAN = 'Sedan',
+  SUV = 'SUV',
+  TRUCK = 'Truck',
+  LUXURY = 'Luxury',
+  VAN = 'Van',
+  PICKUP = 'Pickup',
+  COUPE = 'Coupe'
+}
+
 export enum BookingStatus {
   RESERVED = 'RESERVED',
   ACTIVE = 'ACTIVE',
@@ -57,7 +67,7 @@ export interface Vehicle {
   plateNumber: string;
   model: string;
   brand: string;
-  category: string;
+  category: VehicleCategory;
   status: VehicleStatus;
   dailyRate: number;
   maintenanceNotes: string;

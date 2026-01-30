@@ -7,7 +7,7 @@ import {
   TrendingUp, 
   AlertCircle,
   Zap,
-  Tool
+  Wrench
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
 import { VehicleStatus, BookingStatus } from '../types';
@@ -206,7 +206,7 @@ const Dashboard: React.FC<{ setActiveTab: (t: string) => void }> = ({ setActiveT
             )}
             <div className="mt-4 pt-4 border-t border-current border-opacity-10 flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
               <span>View Fleet Schedule</span>
-              <Tool size={14} />
+              <Wrench size={14} />
             </div>
           </div>
         </div>
