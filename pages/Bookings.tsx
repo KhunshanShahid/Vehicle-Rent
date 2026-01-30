@@ -67,6 +67,8 @@ const Bookings: React.FC = () => {
     notes: ''
   });
 
+  const todayStr = new Date().toISOString().split('T')[0];
+
   useEffect(() => {
     if (draftBooking) {
       setModalMode('create');
@@ -99,6 +101,10 @@ const Bookings: React.FC = () => {
     
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
+    
+    // Validation: End date must be >= start date
+    if (end < start) return { days: 0, subtotal: 0, total: 0, perDay: 0, tax: 0 };
+
     const diffTime = end.getTime() - start.getTime();
     const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
     
@@ -143,6 +149,21 @@ const Bookings: React.FC = () => {
   const handleSaveBooking = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.vehicleIds.length === 0 || !formData.customerId || !formData.startDate || !formData.endDate) return;
+
+    const start = new Date(formData.startDate);
+    const end = new Date(formData.endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Validation checks
+    if (start < today && modalMode === 'create') {
+      alert("Error: Start date cannot be in the past.");
+      return;
+    }
+    if (end < start) {
+      alert("Error: End date cannot be before the start date.");
+      return;
+    }
 
     if (modalMode === 'create') {
       addBooking({
@@ -325,13 +346,31 @@ const Bookings: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-3">
                       <label className="text-sm font-bold text-gray-700 uppercase tracking-widest">Start Date</label>
-                      <input required type="date" className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold"
-                        value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} />
+                      <input 
+                        required 
+                        type="date" 
+                        min={modalMode === 'create' ? todayStr : undefined}
+                        className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={formData.startDate} 
+                        onChange={e => setFormData({...formData, startDate: e.target.value})} 
+                      />
+                      {formData.startDate && formData.startDate < todayStr && modalMode === 'create' && (
+                        <p className="text-[10px] text-red-500 font-bold uppercase">Start date cannot be in the past</p>
+                      )}
                     </div>
                     <div className="space-y-3">
                       <label className="text-sm font-bold text-gray-700 uppercase tracking-widest">End Date</label>
-                      <input required type="date" className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold"
-                        value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} />
+                      <input 
+                        required 
+                        type="date" 
+                        min={formData.startDate || todayStr}
+                        className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={formData.endDate} 
+                        onChange={e => setFormData({...formData, endDate: e.target.value})} 
+                      />
+                      {formData.endDate && formData.startDate && formData.endDate < formData.startDate && (
+                        <p className="text-[10px] text-red-500 font-bold uppercase">End date must be after start date</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -451,8 +490,14 @@ const Bookings: React.FC = () => {
                         })}
                      </div>
                      <div className="h-px bg-slate-800 my-4" />
-                     <div className="flex justify-between text-sm text-slate-400"><span>Duration</span><span className="text-white font-bold">{liveQuote.days} Days</span></div>
-                     <div className="flex justify-between text-sm text-slate-400"><span>Tax ({settings.taxRate}%)</span><span className="text-white font-bold">{settings.currency}{liveQuote.tax.toFixed(2)}</span></div>
+                     {liveQuote.days > 0 ? (
+                       <>
+                         <div className="flex justify-between text-sm text-slate-400"><span>Duration</span><span className="text-white font-bold">{liveQuote.days} Days</span></div>
+                         <div className="flex justify-between text-sm text-slate-400"><span>Tax ({settings.taxRate}%)</span><span className="text-white font-bold">{settings.currency}{liveQuote.tax.toFixed(2)}</span></div>
+                       </>
+                     ) : (
+                        <p className="text-xs text-red-400 font-bold bg-red-900/20 p-2 rounded-lg border border-red-800/50">Invalid date range selected.</p>
+                     )}
                    </div>
                  ) : (
                     <div className="text-slate-600 py-16 text-center">
@@ -465,7 +510,7 @@ const Bookings: React.FC = () => {
                <div className="mt-10 pt-10 border-t border-slate-800">
                   <p className="text-[10px] font-black text-slate-500 uppercase mb-1">Estimated Total</p>
                   <p className="text-4xl font-black text-blue-500 mb-8">{settings.currency}{liveQuote.total.toLocaleString()}</p>
-                  <button onClick={handleSaveBooking} disabled={formData.vehicleIds.length === 0 || !formData.customerId}
+                  <button onClick={handleSaveBooking} disabled={formData.vehicleIds.length === 0 || !formData.customerId || liveQuote.days === 0}
                     className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl flex items-center justify-center gap-2 hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/40 disabled:opacity-30">
                     {modalMode === 'create' ? 'Save Reservation' : 'Update Reservation'} <ChevronRight size={20} />
                   </button>
