@@ -25,6 +25,39 @@
       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background: #555;
       }
+
+      /* Print Styles */
+      @media print {
+        aside, header, .no-print, button {
+          display: none !important;
+        }
+        main {
+          margin: 0 !important;
+          padding: 0 !important;
+          background: white !important;
+        }
+        .print-only {
+          display: block !important;
+        }
+        .printable-agreement {
+          border: none !important;
+          box-shadow: none !important;
+          width: 100% !important;
+          height: auto !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+        .bg-gray-50, .bg-slate-900, .bg-blue-600 {
+          background-color: transparent !important;
+          color: black !important;
+        }
+        .text-white {
+          color: black !important;
+        }
+        .border {
+          border-color: #eee !important;
+        }
+      }
     </style>
   <script type="importmap">
 {

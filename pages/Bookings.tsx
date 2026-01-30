@@ -18,7 +18,9 @@ import {
   FileText,
   Printer,
   ShieldCheck,
-  Info
+  Info,
+  CheckCircle,
+  FileSignature
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
 import { BookingStatus, PaymentStatus, PaymentMethod, VehicleStatus, Booking, DamageEntry } from '../types';
@@ -42,7 +44,6 @@ const Bookings: React.FC = () => {
     addBooking, 
     updateBooking, 
     updateVehicle, 
-    addTransaction, 
     settings, 
     draftBooking, 
     setDraftBooking 
@@ -102,7 +103,6 @@ const Bookings: React.FC = () => {
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
     
-    // Validation: End date must be >= start date
     if (end < start) return { days: 0, subtotal: 0, total: 0, perDay: 0, tax: 0 };
 
     const diffTime = end.getTime() - start.getTime();
@@ -155,7 +155,6 @@ const Bookings: React.FC = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Validation checks
     if (start < today && modalMode === 'create') {
       alert("Error: Start date cannot be in the past.");
       return;
@@ -231,6 +230,12 @@ const Bookings: React.FC = () => {
     setPosActionBooking(null);
   };
 
+  const signAgreement = (bookingId: string) => {
+    updateBooking(bookingId, { contractSignedDate: new Date().toISOString() });
+    alert("Agreement Digitally Signed Successfully");
+    setPosActionBooking(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -281,9 +286,16 @@ const Bookings: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusStyle(booking.status)}`}>
-                        {booking.status}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusStyle(booking.status)}`}>
+                          {booking.status}
+                        </span>
+                        {booking.contractSignedDate && (
+                          <div className="text-emerald-500" title={`Signed on ${new Date(booking.contractSignedDate).toLocaleDateString()}`}>
+                            <CheckCircle size={14} />
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
@@ -354,9 +366,6 @@ const Bookings: React.FC = () => {
                         value={formData.startDate} 
                         onChange={e => setFormData({...formData, startDate: e.target.value})} 
                       />
-                      {formData.startDate && formData.startDate < todayStr && modalMode === 'create' && (
-                        <p className="text-[10px] text-red-500 font-bold uppercase">Start date cannot be in the past</p>
-                      )}
                     </div>
                     <div className="space-y-3">
                       <label className="text-sm font-bold text-gray-700 uppercase tracking-widest">End Date</label>
@@ -368,9 +377,6 @@ const Bookings: React.FC = () => {
                         value={formData.endDate} 
                         onChange={e => setFormData({...formData, endDate: e.target.value})} 
                       />
-                      {formData.endDate && formData.startDate && formData.endDate < formData.startDate && (
-                        <p className="text-[10px] text-red-500 font-bold uppercase">End date must be after start date</p>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -407,10 +413,6 @@ const Bookings: React.FC = () => {
                             <p className="text-sm font-bold text-gray-900">{v.brand} {v.model}</p>
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className="text-[10px] font-mono font-bold text-gray-500 uppercase px-1.5 py-0.5 bg-gray-200/50 rounded">{v.plateNumber}</span>
-                              <div className="flex items-center gap-1">
-                                <div className="w-2.5 h-2.5 rounded-full border border-gray-200" style={{ backgroundColor: v.colorHex }}></div>
-                                <span className="text-[10px] text-gray-500 uppercase font-bold">{v.color}</span>
-                              </div>
                             </div>
                           </div>
                         </div>
@@ -425,38 +427,6 @@ const Bookings: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                </div>
-
-                <div className="space-y-6 border-t border-gray-100 pt-8 pb-10">
-                  <h4 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <AlertCircle className="text-red-500" size={20} /> Pre-Rental Damage Log
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {COMMON_DAMAGES.map(type => (
-                      <button key={type} type="button" onClick={() => {
-                        if (formData.damages.some(d => d.type === type)) {
-                          setFormData(p => ({ ...p, damages: p.damages.filter(d => d.type !== type) }));
-                        } else {
-                          setFormData(p => ({ ...p, damages: [...p.damages, { type, notes: '', photos: [] }] }));
-                        }
-                      }}
-                      className={`px-3 py-1.5 rounded-full text-[10px] font-bold border ${
-                        formData.damages.some(d => d.type === type) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'
-                      }`}>{type}</button>
-                    ))}
-                  </div>
-                  {formData.damages.map((damage) => (
-                    <div key={damage.type} className="bg-gray-50/50 border border-gray-100 rounded-2xl p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h5 className="font-bold text-gray-900">{damage.type}</h5>
-                        <button type="button" onClick={() => setFormData(p => ({ ...p, damages: p.damages.filter(d => d.type !== damage.type) }))} className="text-gray-400 hover:text-red-600"><Trash2 size={16} /></button>
-                      </div>
-                      <textarea className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm min-h-[80px]" placeholder="Damage details..."
-                        value={damage.notes} onChange={e => {
-                          setFormData(p => ({ ...p, damages: p.damages.map(d => d.type === damage.type ? { ...d, notes: e.target.value } : d) }));
-                        }} />
-                    </div>
-                  ))}
                 </div>
               </form>
             </div>
@@ -522,72 +492,155 @@ const Bookings: React.FC = () => {
 
       {posActionBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
-          <div className="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col h-[90vh]">
             {posActionBooking.type === 'contract' ? (
-              <div className="p-10 flex flex-col h-[80vh]">
-                <div className="flex justify-between items-center mb-10 border-b pb-6">
-                  <div>
-                    <h3 className="text-2xl font-black text-gray-900">Rental Agreement</h3>
-                    <p className="text-sm text-gray-500 uppercase font-bold mt-1">Ref: {posActionBooking.booking.id}</p>
+              <div className="flex flex-col flex-1 overflow-hidden printable-agreement">
+                {/* Contract Controls (Hidden in Print) */}
+                <div className="p-6 border-b flex justify-between items-center bg-gray-50 no-print">
+                  <div className="flex items-center gap-3">
+                    <FileSignature size={24} className="text-blue-600" />
+                    <h3 className="text-lg font-bold text-gray-900">Digital Rental Agreement</h3>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => window.print()} className="p-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200"><Printer size={20} /></button>
-                    <button onClick={() => setPosActionBooking(null)} className="p-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200"><X size={20} /></button>
+                    <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-100 font-bold text-sm shadow-sm transition-all">
+                      <Printer size={18} /> Print Document
+                    </button>
+                    <button onClick={() => setPosActionBooking(null)} className="p-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-100 transition-all">
+                      <X size={20} />
+                    </button>
                   </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-8 pr-4">
-                  <section className="space-y-4">
-                    <h4 className="font-bold text-gray-900 uppercase text-xs tracking-widest border-b pb-2">1. Parties</h4>
-                    <div className="grid grid-cols-2 gap-8 text-sm leading-relaxed">
-                      <div>
-                        <p className="font-black text-blue-600 uppercase text-[10px] mb-1">Provider</p>
-                        <p className="font-bold">{settings.companyName}</p>
-                        <p className="text-gray-500">{settings.companyAddress}</p>
+                {/* Scrollable Document Area */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-12 bg-gray-100/50">
+                  <div className="max-w-[800px] mx-auto bg-white shadow-2xl border p-16 space-y-12 text-gray-800 printable-agreement rounded-lg">
+                    {/* Agreement Header */}
+                    <div className="flex justify-between items-start border-b-2 border-slate-900 pb-8">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 mb-4">
+                           <div className="bg-blue-600 p-2 rounded-lg text-white">
+                             <Car size={32} />
+                           </div>
+                           <h1 className="text-4xl font-black tracking-tighter text-gray-900">{settings.companyName.toUpperCase()}</h1>
+                        </div>
+                        <p className="text-sm font-bold text-gray-500 uppercase tracking-[0.2em]">{settings.companyAddress}</p>
+                        <p className="text-sm font-medium text-gray-400">Email: {settings.companyEmail}</p>
                       </div>
-                      <div>
-                        <p className="font-black text-blue-600 uppercase text-[10px] mb-1">Renter</p>
-                        <p className="font-bold">{customers.find(c => c.id === posActionBooking.booking.customerId)?.name}</p>
-                        <p className="text-gray-500">License: {customers.find(c => c.id === posActionBooking.booking.customerId)?.licenseNumber}</p>
+                      <div className="text-right">
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Contract Number</p>
+                        <p className="text-2xl font-black text-gray-900">REF-{posActionBooking.booking.id.toUpperCase()}</p>
+                        <p className="text-xs font-bold text-blue-600 mt-2 uppercase tracking-tighter">Generated on {new Date().toLocaleDateString()}</p>
                       </div>
                     </div>
-                  </section>
 
-                  <section className="space-y-4">
-                    <h4 className="font-bold text-gray-900 uppercase text-xs tracking-widest border-b pb-2">2. Vehicles & Schedule</h4>
-                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-4">
-                       {vehicles.filter(v => posActionBooking.booking.vehicleIds.includes(v.id)).map(v => (
-                         <div key={v.id} className="flex justify-between text-sm font-bold items-center">
-                           <div className="flex items-center gap-2">
-                             <div className="w-2.5 h-2.5 rounded-full border border-gray-300" style={{ backgroundColor: v.colorHex }}></div>
-                             <span>{v.brand} {v.model} - {v.plateNumber}</span>
-                           </div>
-                           <span className="text-gray-400">({v.color})</span>
+                    <h2 className="text-3xl font-black text-center uppercase tracking-[0.3em] py-4">Vehicle Rental Agreement</h2>
+
+                    <div className="grid grid-cols-2 gap-16">
+                      <section className="space-y-4">
+                        <h4 className="font-black text-blue-600 uppercase text-[10px] tracking-widest border-b-2 border-blue-50 pb-2">Part 1: The Provider (Lessor)</h4>
+                        <div className="text-sm leading-relaxed">
+                          <p className="font-black text-gray-900">{settings.companyName}</p>
+                          <p className="text-gray-600 italic">Legal Entity Registered and Authorized for Fleet Management</p>
+                          <p className="mt-4 text-gray-500">{settings.companyAddress}</p>
+                        </div>
+                      </section>
+                      <section className="space-y-4">
+                        <h4 className="font-black text-blue-600 uppercase text-[10px] tracking-widest border-b-2 border-blue-50 pb-2">Part 2: The Renter (Lessee)</h4>
+                        <div className="text-sm leading-relaxed">
+                          <p className="font-black text-gray-900">{customers.find(c => c.id === posActionBooking.booking.customerId)?.name}</p>
+                          <p className="text-gray-500">License No: <span className="font-mono font-bold text-gray-900">{customers.find(c => c.id === posActionBooking.booking.customerId)?.licenseNumber}</span></p>
+                          <p className="text-gray-500">Contact: {customers.find(c => c.id === posActionBooking.booking.customerId)?.phone}</p>
+                          <p className="text-gray-500">Email: {customers.find(c => c.id === posActionBooking.booking.customerId)?.email}</p>
+                        </div>
+                      </section>
+                    </div>
+
+                    <section className="space-y-4">
+                      <h4 className="font-black text-blue-600 uppercase text-[10px] tracking-widest border-b-2 border-blue-50 pb-2">Part 3: Fleet Assets Dispatched</h4>
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 text-gray-400 uppercase text-[10px] font-black tracking-widest">
+                            <th className="p-4 text-left border">Vehicle Description</th>
+                            <th className="p-4 text-center border">Plate No.</th>
+                            <th className="p-4 text-center border">Start Mileage</th>
+                            <th className="p-4 text-right border">Daily Rate</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {vehicles.filter(v => posActionBooking.booking.vehicleIds.includes(v.id)).map(v => (
+                            <tr key={v.id} className="border-b">
+                              <td className="p-4 font-bold text-gray-900 border">
+                                {v.brand} {v.model} ({v.color})
+                              </td>
+                              <td className="p-4 text-center font-mono font-bold border">{v.plateNumber}</td>
+                              <td className="p-4 text-center border">{v.currentMileage.toLocaleString()} KM</td>
+                              <td className="p-4 text-right font-black border">{settings.currency}{v.dailyRate}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                           <tr className="bg-gray-50 font-black">
+                             <td colSpan={3} className="p-4 text-right border uppercase tracking-widest text-[10px]">Rental Duration: {Math.ceil((new Date(posActionBooking.booking.endDate).getTime() - new Date(posActionBooking.booking.startDate).getTime()) / (1000 * 60 * 60 * 24))} Days</td>
+                             <td className="p-4 text-right border text-blue-600 text-lg">{settings.currency}{posActionBooking.booking.totalAmount.toLocaleString()}</td>
+                           </tr>
+                        </tfoot>
+                      </table>
+                    </section>
+
+                    <section className="space-y-4">
+                      <h4 className="font-black text-blue-600 uppercase text-[10px] tracking-widest border-b-2 border-blue-50 pb-2">Part 4: Specific Rental Terms</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-[11px] text-gray-500 leading-relaxed uppercase font-bold tracking-tight">
+                        <div className="space-y-3">
+                           <p>• Renter acknowledges vehicle condition log recorded at dispatch.</p>
+                           <p>• Late returns are subject to a fee of {settings.currency}{settings.lateFeePerHour}/hour per vehicle.</p>
+                           <p>• Vehicles must be returned with the same fuel level as recorded at dispatch.</p>
+                        </div>
+                        <div className="space-y-3">
+                           <p>• Lessor is not responsible for personal property left in the vehicle.</p>
+                           <p>• Renter assumes all liability for traffic violations during the rental term.</p>
+                           <p>• Insurance coverage is subject to valid license and adherence to traffic laws.</p>
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* Signature Area */}
+                    <div className="pt-24 grid grid-cols-2 gap-24">
+                       <div className="space-y-6">
+                         <div className="border-b-2 border-gray-300 h-16 relative">
+                            <span className="absolute bottom-[-24px] left-0 text-[10px] font-black uppercase text-gray-400">Signature of Renter (Lessee)</span>
+                            {posActionBooking.booking.contractSignedDate && (
+                              <div className="absolute inset-0 flex items-center justify-center font-bold text-blue-600 opacity-50 transform -rotate-12 uppercase text-lg border-2 border-blue-600 px-4 py-1 rounded-lg">
+                                Digitally Signed
+                              </div>
+                            )}
                          </div>
-                       ))}
-                       <div className="h-px bg-gray-200 my-2" />
-                       <div className="flex justify-between text-xs font-medium">
-                         <span>Pickup: {new Date(posActionBooking.booking.startDate).toLocaleDateString()}</span>
-                         <span>Return: {new Date(posActionBooking.booking.endDate).toLocaleDateString()}</span>
+                         <p className="text-[10px] font-bold text-gray-400">DATE: {posActionBooking.booking.contractSignedDate ? new Date(posActionBooking.booking.contractSignedDate).toLocaleDateString() : '_________________'}</p>
+                       </div>
+                       <div className="space-y-6">
+                         <div className="border-b-2 border-gray-300 h-16 relative">
+                            <span className="absolute bottom-[-24px] left-0 text-[10px] font-black uppercase text-gray-400">Signature of Authorized Agent (Lessor)</span>
+                            <div className="absolute inset-0 flex items-center justify-center font-black text-slate-900 opacity-30 transform -rotate-6 uppercase text-xl">
+                               {settings.companyName}
+                            </div>
+                         </div>
+                         <p className="text-[10px] font-bold text-gray-400">DATE: {new Date().toLocaleDateString()}</p>
                        </div>
                     </div>
-                  </section>
-
-                  <section className="space-y-4">
-                    <h4 className="font-bold text-gray-900 uppercase text-xs tracking-widest border-b pb-2">3. Terms</h4>
-                    <p className="text-xs text-gray-500 leading-relaxed">
-                      The Renter acknowledges receipt of the vehicles in good condition. Renter agrees to pay all fees, taxes, and potential late charges of {settings.currency}{settings.lateFeePerHour}/hr. Renter is liable for any damages recorded in the condition log at the end of the rental period.
-                    </p>
-                  </section>
+                  </div>
                 </div>
 
-                <div className="mt-10 pt-8 border-t flex items-center justify-between">
-                   <div className="flex items-center gap-3 text-emerald-600">
-                     <ShieldCheck size={24} />
-                     <span className="text-sm font-bold">Verified by RentFlow Operations</span>
-                   </div>
-                   <button onClick={() => setPosActionBooking(null)} className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl">Close Agreement</button>
-                </div>
+                {/* Footer Signing Action (Hidden in Print) */}
+                {!posActionBooking.booking.contractSignedDate && (
+                  <div className="p-8 bg-white border-t flex justify-center no-print">
+                    <button 
+                      onClick={() => signAgreement(posActionBooking.booking.id)}
+                      className="flex items-center gap-3 bg-blue-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all scale-110"
+                    >
+                      <FileSignature size={24} />
+                      Confirm & Digitally Sign Agreement
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="p-10 space-y-6">
