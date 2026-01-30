@@ -62,6 +62,15 @@ export interface Transaction {
   note: string;
 }
 
+export interface MaintenanceRecord {
+  id: string;
+  date: string;
+  type: string;
+  notes: string;
+  cost: number;
+  mileageAtService: number;
+}
+
 export interface Vehicle {
   id: string;
   plateNumber: string;
@@ -79,6 +88,7 @@ export interface Vehicle {
   lastServiceDate?: string;
   nextServiceDate?: string;
   nextServiceType?: string;
+  maintenanceHistory: MaintenanceRecord[];
 }
 
 export interface Customer {
