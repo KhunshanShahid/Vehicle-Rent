@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   Plus, 
   Search, 
@@ -18,7 +18,10 @@ import {
   History,
   Tag,
   DollarSign,
-  FileText
+  FileText,
+  ChevronRight,
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
 import { VehicleStatus, Vehicle, VehicleCategory, MaintenanceRecord } from '../types';
@@ -39,11 +42,26 @@ const VEHICLE_CATEGORIES = Object.values(VehicleCategory);
 const Vehicles: React.FC = () => {
   const { vehicles, addVehicle, bulkAddVehicles, updateVehicle, settings } = useRentFlowStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<VehicleStatus | 'ALL'>('ALL');
+  const [filter, setFilter] = useState<VehicleStatus | 'ALL' | 'DUE_SOON' | 'OVERDUE'>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
+
+  const now = new Date();
+
+  const maintenanceStats = useMemo(() => {
+    const overdue = vehicles.filter(v => v.nextServiceDate && new Date(v.nextServiceDate) < now).length;
+    const approaching = vehicles.filter(v => {
+      if (!v.nextServiceDate) return false;
+      const next = new Date(v.nextServiceDate);
+      const diff = next.getTime() - now.getTime();
+      const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+      return days >= 0 && days <= 7;
+    }).length;
+    
+    return { overdue, approaching, total: vehicles.length };
+  }, [vehicles]);
 
   const [formState, setFormState] = useState<Partial<Vehicle>>({
     brand: '',
@@ -75,7 +93,20 @@ const Vehicles: React.FC = () => {
     const matchesSearch = v.brand.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          v.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          v.plateNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filter === 'ALL' || v.status === filter;
+    
+    let matchesFilter = true;
+    if (filter === 'ALL') matchesFilter = true;
+    else if (filter === 'OVERDUE') matchesFilter = !!(v.nextServiceDate && new Date(v.nextServiceDate) < now);
+    else if (filter === 'DUE_SOON') {
+      if (!v.nextServiceDate) matchesFilter = false;
+      else {
+        const diff = new Date(v.nextServiceDate).getTime() - now.getTime();
+        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        matchesFilter = days >= 0 && days <= 7;
+      }
+    }
+    else matchesFilter = v.status === filter;
+    
     return matchesSearch && matchesFilter;
   });
 
@@ -144,7 +175,7 @@ const Vehicles: React.FC = () => {
       maintenanceHistory: newHistory,
       lastServiceDate: logState.date,
       currentMileage: logState.mileage,
-      status: VehicleStatus.AVAILABLE // Auto-set to available after logging maintenance
+      status: VehicleStatus.AVAILABLE 
     });
 
     setFormState(prev => ({ ...prev, maintenanceHistory: newHistory, status: VehicleStatus.AVAILABLE, lastServiceDate: logState.date, currentMileage: logState.mileage }));
@@ -161,7 +192,6 @@ const Vehicles: React.FC = () => {
   const getMaintenanceHealth = (v: Vehicle) => {
     if (!v.nextServiceDate) return { label: 'Unknown', color: 'gray', overdue: false };
     const next = new Date(v.nextServiceDate);
-    const now = new Date();
     const diff = next.getTime() - now.getTime();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
 
@@ -195,6 +225,74 @@ const Vehicles: React.FC = () => {
         </div>
       </div>
 
+      {/* Maintenance Summary Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div 
+          onClick={() => setFilter('OVERDUE')}
+          className={`p-6 rounded-3xl border transition-all cursor-pointer group relative overflow-hidden ${filter === 'OVERDUE' ? 'bg-red-600 border-red-600 text-white shadow-xl shadow-red-200' : 'bg-white border-red-100 hover:border-red-300'}`}
+        >
+          <div className="flex justify-between items-start relative z-10">
+            <div>
+              <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${filter === 'OVERDUE' ? 'text-red-100' : 'text-red-500'}`}>Overdue Service</p>
+              <h4 className="text-3xl font-black mt-1">{maintenanceStats.overdue}</h4>
+            </div>
+            <div className={`p-3 rounded-2xl ${filter === 'OVERDUE' ? 'bg-red-500/30' : 'bg-red-50 text-red-600'}`}>
+              <AlertTriangle size={24} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-2 relative z-10">
+             <span className={`text-[10px] font-bold ${filter === 'OVERDUE' ? 'text-red-100' : 'text-gray-400'}`}>Requires immediate attention</span>
+             <ChevronRight size={14} className={filter === 'OVERDUE' ? 'text-red-200' : 'text-gray-300'} />
+          </div>
+          {maintenanceStats.overdue > 0 && filter !== 'OVERDUE' && (
+             <div className="absolute top-0 right-0 w-12 h-12 bg-red-500/5 translate-x-4 -translate-y-4 rounded-full"></div>
+          )}
+        </div>
+
+        <div 
+          onClick={() => setFilter('DUE_SOON')}
+          className={`p-6 rounded-3xl border transition-all cursor-pointer group relative overflow-hidden ${filter === 'DUE_SOON' ? 'bg-amber-500 border-amber-500 text-white shadow-xl shadow-amber-200' : 'bg-white border-amber-100 hover:border-amber-300'}`}
+        >
+          <div className="flex justify-between items-start relative z-10">
+            <div>
+              <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${filter === 'DUE_SOON' ? 'text-amber-100' : 'text-amber-500'}`}>Due in 7 Days</p>
+              <h4 className="text-3xl font-black mt-1">{maintenanceStats.approaching}</h4>
+            </div>
+            <div className={`p-3 rounded-2xl ${filter === 'DUE_SOON' ? 'bg-amber-400/30' : 'bg-amber-50 text-amber-600'}`}>
+              <Clock size={24} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-2 relative z-10">
+             <span className={`text-[10px] font-bold ${filter === 'DUE_SOON' ? 'text-amber-100' : 'text-gray-400'}`}>Upcoming maintenance tasks</span>
+             <ChevronRight size={14} className={filter === 'DUE_SOON' ? 'text-amber-200' : 'text-gray-300'} />
+          </div>
+        </div>
+
+        <div className="bg-slate-900 p-6 rounded-3xl text-white relative overflow-hidden shadow-xl">
+          <div className="flex justify-between items-start relative z-10">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Total Fleet</p>
+              <h4 className="text-3xl font-black mt-1">{maintenanceStats.total}</h4>
+            </div>
+            <div className="p-3 bg-slate-800 rounded-2xl text-blue-400">
+              <Zap size={24} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-4 relative z-10">
+             <div className="flex -space-x-2">
+                {vehicles.slice(0, 3).map(v => (
+                   <img key={v.id} src={v.image} className="w-6 h-6 rounded-full border-2 border-slate-900 object-cover" alt="" />
+                ))}
+                {maintenanceStats.total > 3 && (
+                  <div className="w-6 h-6 rounded-full border-2 border-slate-900 bg-slate-800 text-[8px] font-bold flex items-center justify-center">+{maintenanceStats.total - 3}</div>
+                )}
+             </div>
+             <span className="text-[10px] font-bold text-slate-400">Fleet operational health</span>
+          </div>
+          <div className="absolute bottom-0 right-0 w-24 h-24 bg-blue-500/5 translate-x-8 translate-y-8 rounded-full"></div>
+        </div>
+      </div>
+
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -207,7 +305,7 @@ const Vehicles: React.FC = () => {
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
-          {['ALL', ...Object.values(VehicleStatus)].map((s) => (
+          {[ 'ALL', ...Object.values(VehicleStatus)].map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s as any)}
@@ -217,108 +315,122 @@ const Vehicles: React.FC = () => {
                   : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
               }`}
             >
-              {s.charAt(0) + s.slice(1).toLowerCase()}
+              {s.charAt(0) + s.slice(1).toLowerCase().replace('_', ' ')}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredVehicles.map((vehicle) => {
-          const health = getMaintenanceHealth(vehicle);
-          return (
-            <div 
-              key={vehicle.id} 
-              onClick={() => openEditModal(vehicle)}
-              className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer relative"
-            >
-              <div className="relative h-52">
-                <img src={vehicle.image} alt={vehicle.model} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
-                  <p className="text-white text-sm font-bold flex items-center gap-2">
-                    <Edit3 size={16} /> Click to manage vehicle
-                  </p>
-                </div>
-                <div className="absolute top-4 left-4 flex flex-col gap-2">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold border shadow-sm ${statusColors[vehicle.status]}`}>
-                    {vehicle.status}
-                  </span>
-                  <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white border border-gray-200 text-gray-600 shadow-sm">
-                    {vehicle.category}
-                  </span>
-                </div>
-                {vehicle.nextServiceDate && (
-                  <div className={`absolute bottom-4 right-4 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm bg-white 
-                    ${health.color === 'red' ? 'text-red-600 border-red-100' : 
-                      health.color === 'amber' ? 'text-amber-600 border-amber-100' : 'text-emerald-600 border-emerald-100'}`}>
-                    {health.label}
-                  </div>
-                )}
-              </div>
-              <div className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="min-w-0">
-                    <h3 className="text-lg font-bold text-gray-900 truncate">{vehicle.brand} {vehicle.model}</h3>
-                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                      <span className="text-xs font-mono text-gray-400 uppercase bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                        {vehicle.plateNumber}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xl font-black text-blue-600">
-                      {settings.currency}{vehicle.dailyRate}
-                      <span className="text-[10px] text-gray-400 font-bold block uppercase tracking-tighter">per day</span>
+      {filteredVehicles.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredVehicles.map((vehicle) => {
+            const health = getMaintenanceHealth(vehicle);
+            return (
+              <div 
+                key={vehicle.id} 
+                onClick={() => openEditModal(vehicle)}
+                className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl transition-all group cursor-pointer relative"
+              >
+                <div className="relative h-52">
+                  <img src={vehicle.image} alt={vehicle.model} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
+                    <p className="text-white text-sm font-bold flex items-center gap-2">
+                      <Edit3 size={16} /> Click to manage vehicle
                     </p>
                   </div>
+                  <div className="absolute top-4 left-4 flex flex-col gap-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border shadow-sm ${statusColors[vehicle.status]}`}>
+                      {vehicle.status}
+                    </span>
+                    <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white border border-gray-200 text-gray-600 shadow-sm">
+                      {vehicle.category}
+                    </span>
+                  </div>
+                  {vehicle.nextServiceDate && (
+                    <div className={`absolute bottom-4 right-4 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm bg-white 
+                      ${health.color === 'red' ? 'text-red-600 border-red-100' : 
+                        health.color === 'amber' ? 'text-amber-600 border-amber-100' : 'text-emerald-600 border-emerald-100'}`}>
+                      {health.label}
+                    </div>
+                  )}
                 </div>
-                
-                <div className="mt-4 space-y-2">
-                  {vehicle.maintenanceNotes && (
-                    <div className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-100 rounded-xl">
-                      <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
-                      <p className="text-[11px] text-amber-700 line-clamp-2 leading-relaxed">
-                        {vehicle.maintenanceNotes}
+                <div className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-bold text-gray-900 truncate">{vehicle.brand} {vehicle.model}</h3>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="text-xs font-mono text-gray-400 uppercase bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                          {vehicle.plateNumber}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xl font-black text-blue-600">
+                        {settings.currency}{vehicle.dailyRate}
+                        <span className="text-[10px] text-gray-400 font-bold block uppercase tracking-tighter">per day</span>
                       </p>
                     </div>
-                  )}
-                  {vehicle.nextServiceDate && (
-                    <div className="flex items-center justify-between p-2 bg-gray-50 border border-gray-100 rounded-xl">
-                       <div className="flex items-center gap-2">
-                         <Calendar size={14} className="text-gray-400" />
-                         <span className="text-[11px] font-bold text-gray-600">Next: {vehicle.nextServiceDate}</span>
-                       </div>
-                       <span className="text-[10px] font-black uppercase text-blue-500">{vehicle.nextServiceType}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-gray-50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-full border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] font-bold text-gray-600">KM</div>
-                    <span className="text-xs font-bold text-gray-900">{vehicle.currentMileage?.toLocaleString() || 0}</span>
                   </div>
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      updateVehicle(vehicle.id, { 
-                        status: vehicle.status === VehicleStatus.MAINTENANCE ? VehicleStatus.AVAILABLE : VehicleStatus.MAINTENANCE 
-                      });
-                    }}
-                    className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors border ${
-                      vehicle.status === VehicleStatus.MAINTENANCE 
-                        ? 'bg-emerald-600 text-white border-emerald-600' 
-                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    {vehicle.status === VehicleStatus.MAINTENANCE ? 'Mark Ready' : 'Send to Service'}
-                  </button>
+                  
+                  <div className="mt-4 space-y-2">
+                    {vehicle.maintenanceNotes && (
+                      <div className="flex items-start gap-2 p-2 bg-amber-50 border border-amber-100 rounded-xl">
+                        <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                        <p className="text-[11px] text-amber-700 line-clamp-2 leading-relaxed">
+                          {vehicle.maintenanceNotes}
+                        </p>
+                      </div>
+                    )}
+                    {vehicle.nextServiceDate && (
+                      <div className="flex items-center justify-between p-2 bg-gray-50 border border-gray-100 rounded-xl">
+                         <div className="flex items-center gap-2">
+                           <Calendar size={14} className="text-gray-400" />
+                           <span className="text-[11px] font-bold text-gray-600">Next: {vehicle.nextServiceDate}</span>
+                         </div>
+                         <span className="text-[10px] font-black uppercase text-blue-500">{vehicle.nextServiceType}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-gray-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-full border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] font-bold text-gray-600">KM</div>
+                      <span className="text-xs font-bold text-gray-900">{vehicle.currentMileage?.toLocaleString() || 0}</span>
+                    </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateVehicle(vehicle.id, { 
+                          status: vehicle.status === VehicleStatus.MAINTENANCE ? VehicleStatus.AVAILABLE : VehicleStatus.MAINTENANCE 
+                        });
+                      }}
+                      className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors border ${
+                        vehicle.status === VehicleStatus.MAINTENANCE 
+                          ? 'bg-emerald-600 text-white border-emerald-600' 
+                          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {vehicle.status === VehicleStatus.MAINTENANCE ? 'Mark Ready' : 'Send to Service'}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200 shadow-sm">
+           <Search size={48} className="mx-auto text-gray-200 mb-4" />
+           <p className="text-lg font-bold text-gray-900">No vehicles found</p>
+           <p className="text-gray-500 mt-1">Try adjusting your filters or search terms.</p>
+           <button 
+             onClick={() => { setFilter('ALL'); setSearchTerm(''); }}
+             className="mt-6 text-sm font-bold text-blue-600 hover:underline"
+           >
+             Clear All Filters
+           </button>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
