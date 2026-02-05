@@ -11,7 +11,7 @@ import {
   Edit3,
   Palette,
   Download,
-  Upload,
+  Upload as UploadIcon,
   Calendar,
   Wrench,
   Clock,
@@ -21,7 +21,9 @@ import {
   FileText,
   ChevronRight,
   ShieldCheck,
-  Zap
+  Zap,
+  Image as ImageIcon,
+  Camera
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
 import { VehicleStatus, Vehicle, VehicleCategory, MaintenanceRecord } from '../types';
@@ -47,6 +49,7 @@ const Vehicles: React.FC = () => {
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const now = new Date();
 
@@ -122,7 +125,7 @@ const Vehicles: React.FC = () => {
       status: VehicleStatus.AVAILABLE,
       dailyRate: 0,
       maintenanceNotes: '',
-      image: 'https://picsum.photos/seed/' + Math.random() + '/400/300',
+      image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=400&h=300&auto=format&fit=crop',
       color: 'Silver',
       colorHex: '#C0C0C0',
       lastServiceDate: new Date().toISOString().split('T')[0],
@@ -153,6 +156,21 @@ const Vehicles: React.FC = () => {
       }
       setIsModalOpen(false);
     }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormState(prev => ({ ...prev, image: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   const handleLogMaintenance = () => {
@@ -244,9 +262,6 @@ const Vehicles: React.FC = () => {
              <span className={`text-[10px] font-bold ${filter === 'OVERDUE' ? 'text-red-100' : 'text-gray-400'}`}>Requires immediate attention</span>
              <ChevronRight size={14} className={filter === 'OVERDUE' ? 'text-red-200' : 'text-gray-300'} />
           </div>
-          {maintenanceStats.overdue > 0 && filter !== 'OVERDUE' && (
-             <div className="absolute top-0 right-0 w-12 h-12 bg-red-500/5 translate-x-4 -translate-y-4 rounded-full"></div>
-          )}
         </div>
 
         <div 
@@ -289,7 +304,6 @@ const Vehicles: React.FC = () => {
              </div>
              <span className="text-[10px] font-bold text-slate-400">Fleet operational health</span>
           </div>
-          <div className="absolute bottom-0 right-0 w-24 h-24 bg-blue-500/5 translate-x-8 translate-y-8 rounded-full"></div>
         </div>
       </div>
 
@@ -472,6 +486,38 @@ const Vehicles: React.FC = () => {
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               {activeTab === 'details' ? (
                 <form onSubmit={handleSaveVehicle} className="p-8 space-y-6">
+                  {/* Image Upload Section */}
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Vehicle Photo</label>
+                    <div 
+                      onClick={triggerFileInput}
+                      className="relative h-48 w-full rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 overflow-hidden group cursor-pointer hover:border-blue-400 transition-all"
+                    >
+                      {formState.image ? (
+                        <>
+                          <img src={formState.image} className="w-full h-full object-cover" alt="Preview" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white">
+                            <Camera size={32} className="mb-2" />
+                            <p className="text-xs font-bold uppercase">Change Photo</p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                          <ImageIcon size={48} className="mb-2 opacity-20" />
+                          <p className="text-sm font-medium">Click to upload vehicle image</p>
+                          <p className="text-[10px] mt-1">Supports JPG, PNG (Max 5MB)</p>
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={handleImageChange}
+                      />
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Brand</label>
