@@ -23,7 +23,11 @@ import {
   ShieldCheck,
   Zap,
   Image as ImageIcon,
-  Camera
+  Camera,
+  Filter,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
 import { VehicleStatus, Vehicle, VehicleCategory, MaintenanceRecord } from '../types';
@@ -45,6 +49,11 @@ const Vehicles: React.FC = () => {
   const { vehicles, addVehicle, bulkAddVehicles, updateVehicle, settings } = useRentFlowStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<VehicleStatus | 'ALL' | 'DUE_SOON' | 'OVERDUE'>('ALL');
+  const [categoryFilter, setCategoryFilter] = useState<VehicleCategory | 'ALL'>('ALL');
+  const [colorFilter, setColorFilter] = useState('');
+  const [lastServiceStart, setLastServiceStart] = useState('');
+  const [lastServiceEnd, setLastServiceEnd] = useState('');
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
@@ -64,6 +73,24 @@ const Vehicles: React.FC = () => {
     }).length;
     
     return { overdue, approaching, total: vehicles.length };
+  }, [vehicles]);
+
+  const maintenanceAlerts = useMemo(() => {
+    const alerts = vehicles.filter(v => v.nextServiceDate).map(v => {
+      const next = new Date(v.nextServiceDate!);
+      const diff = next.getTime() - now.getTime();
+      const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+      
+      return {
+        ...v,
+        daysToService: days,
+        isOverdue: days < 0,
+        isApproaching: days >= 0 && days <= 7
+      };
+    }).filter(v => v.isOverdue || v.isApproaching)
+    .sort((a, b) => a.daysToService - b.daysToService);
+    
+    return alerts;
   }, [vehicles]);
 
   const [formState, setFormState] = useState<Partial<Vehicle>>({
@@ -108,8 +135,22 @@ const Vehicles: React.FC = () => {
       }
     }
     else matchesFilter = v.status === filter;
+
+    const matchesCategory = categoryFilter === 'ALL' || v.category === categoryFilter;
+    const matchesColor = !colorFilter || v.color.toLowerCase().includes(colorFilter.toLowerCase());
     
-    return matchesSearch && matchesFilter;
+    let matchesLastService = true;
+    if (lastServiceStart || lastServiceEnd) {
+      if (!v.lastServiceDate) {
+        matchesLastService = false;
+      } else {
+        const serviceDate = new Date(v.lastServiceDate);
+        if (lastServiceStart && serviceDate < new Date(lastServiceStart)) matchesLastService = false;
+        if (lastServiceEnd && serviceDate > new Date(lastServiceEnd)) matchesLastService = false;
+      }
+    }
+    
+    return matchesSearch && matchesFilter && matchesCategory && matchesColor && matchesLastService;
   });
 
   const openAddModal = () => {
@@ -306,37 +347,152 @@ const Vehicles: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search brand, model, plate..." 
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      {/* Urgent Maintenance Alerts Section */}
+      {maintenanceAlerts.length > 0 && (
+        <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2">
+              <AlertTriangle size={14} className="text-red-500" />
+              Urgent Maintenance Alerts ({maintenanceAlerts.length})
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {maintenanceAlerts.map(alert => (
+              <div 
+                key={alert.id}
+                onClick={() => openEditModal(alert)}
+                className={`p-4 rounded-2xl border flex items-center gap-4 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 ${
+                  alert.isOverdue 
+                    ? 'bg-red-50 border-red-100 hover:border-red-200' 
+                    : 'bg-amber-50 border-amber-100 hover:border-amber-200'
+                }`}
+              >
+                <div className={`p-2.5 rounded-xl ${alert.isOverdue ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                  <Wrench size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start">
+                    <p className="text-sm font-bold text-gray-900 truncate">{alert.brand} {alert.model}</p>
+                    <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${alert.isOverdue ? 'bg-red-200 text-red-700' : 'bg-amber-200 text-amber-700'}`}>
+                      {alert.isOverdue ? 'Overdue' : 'Due Soon'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-0.5 font-medium">
+                    {alert.nextServiceType} • {alert.isOverdue ? `${Math.abs(alert.daysToService)}d overdue` : `In ${alert.daysToService}d`}
+                  </p>
+                </div>
+                <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-400" />
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
-          {[ 'ALL', ...Object.values(VehicleStatus), 'DUE_SOON', 'OVERDUE'].map((s) => (
+      )}
+
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search brand, model, plate..." 
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
             <button
-              key={s}
-              onClick={() => setFilter(s as any)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
-                filter === s 
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-100' 
-                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-transparent hover:border-gray-200'
+              onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                isAdvancedOpen 
+                  ? 'bg-blue-50 border-blue-200 text-blue-600' 
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
             >
-              {s === 'DUE_SOON' && <Clock size={14} />}
-              {s === 'OVERDUE' && <AlertTriangle size={14} />}
-              {s === 'ALL' ? 'All Vehicles' : 
-               s === 'DUE_SOON' ? 'Due Soon' : 
-               s === 'OVERDUE' ? 'Overdue' : 
-               s.charAt(0) + s.slice(1).toLowerCase().replace('_', ' ')}
+              <SlidersHorizontal size={16} />
+              Filters
+              {isAdvancedOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
-          ))}
+            <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
+              {[ 'ALL', ...Object.values(VehicleStatus), 'DUE_SOON', 'OVERDUE'].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setFilter(s as any)}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
+                    filter === s 
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-100' 
+                      : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-transparent hover:border-gray-200'
+                  }`}
+                >
+                  {s === 'DUE_SOON' && <Clock size={14} />}
+                  {s === 'OVERDUE' && <AlertTriangle size={14} />}
+                  {s === 'ALL' ? 'All' : 
+                  s === 'DUE_SOON' ? 'Due Soon' : 
+                  s === 'OVERDUE' ? 'Overdue' : 
+                  s.charAt(0) + s.slice(1).toLowerCase().replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {isAdvancedOpen && (
+          <div className="pt-4 border-t border-gray-50 grid grid-cols-1 md:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Category</label>
+              <select 
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-bold text-gray-700"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value as any)}
+              >
+                <option value="ALL">All Categories</option>
+                {VEHICLE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Color</label>
+              <input 
+                type="text" 
+                placeholder="e.g. Silver, Black"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-bold text-gray-700"
+                value={colorFilter}
+                onChange={(e) => setColorFilter(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Last Service From</label>
+              <input 
+                type="date" 
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-bold text-gray-700"
+                value={lastServiceStart}
+                onChange={(e) => setLastServiceStart(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Last Service To</label>
+              <div className="flex gap-2">
+                <input 
+                  type="date" 
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-bold text-gray-700"
+                  value={lastServiceEnd}
+                  onChange={(e) => setLastServiceEnd(e.target.value)}
+                />
+                <button 
+                  onClick={() => {
+                    setCategoryFilter('ALL');
+                    setColorFilter('');
+                    setLastServiceStart('');
+                    setLastServiceEnd('');
+                  }}
+                  className="px-3 py-2 bg-gray-100 text-gray-500 rounded-xl hover:bg-gray-200 transition-colors"
+                  title="Reset Advanced Filters"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {filteredVehicles.length > 0 ? (
@@ -442,7 +598,14 @@ const Vehicles: React.FC = () => {
            <p className="text-lg font-bold text-gray-900">No vehicles found</p>
            <p className="text-gray-500 mt-1">Try adjusting your filters or search terms.</p>
            <button 
-             onClick={() => { setFilter('ALL'); setSearchTerm(''); }}
+             onClick={() => { 
+               setFilter('ALL'); 
+               setSearchTerm(''); 
+               setCategoryFilter('ALL');
+               setColorFilter('');
+               setLastServiceStart('');
+               setLastServiceEnd('');
+             }}
              className="mt-6 text-sm font-bold text-blue-600 hover:underline"
            >
              Clear All Filters
