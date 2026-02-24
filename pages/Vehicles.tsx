@@ -93,9 +93,8 @@ const Vehicles: React.FC = () => {
   });
 
   const filteredVehicles = vehicles.filter(v => {
-    const matchesSearch = v.brand.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         v.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         v.plateNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchStr = `${v.brand} ${v.model} ${v.plateNumber}`.toLowerCase();
+    const matchesSearch = searchStr.includes(searchTerm.toLowerCase());
     
     let matchesFilter = true;
     if (filter === 'ALL') matchesFilter = true;
@@ -318,18 +317,23 @@ const Vehicles: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
-          {[ 'ALL', ...Object.values(VehicleStatus)].map((s) => (
+        <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
+          {[ 'ALL', ...Object.values(VehicleStatus), 'DUE_SOON', 'OVERDUE'].map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s as any)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
                 filter === s 
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-100' 
-                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-transparent hover:border-gray-200'
               }`}
             >
-              {s.charAt(0) + s.slice(1).toLowerCase().replace('_', ' ')}
+              {s === 'DUE_SOON' && <Clock size={14} />}
+              {s === 'OVERDUE' && <AlertTriangle size={14} />}
+              {s === 'ALL' ? 'All Vehicles' : 
+               s === 'DUE_SOON' ? 'Due Soon' : 
+               s === 'OVERDUE' ? 'Overdue' : 
+               s.charAt(0) + s.slice(1).toLowerCase().replace('_', ' ')}
             </button>
           ))}
         </div>
