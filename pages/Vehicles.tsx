@@ -233,10 +233,22 @@ const Vehicles: React.FC = () => {
       maintenanceHistory: newHistory,
       lastServiceDate: logState.date,
       currentMileage: logState.mileage,
-      status: VehicleStatus.AVAILABLE 
+      status: VehicleStatus.AVAILABLE,
+      maintenanceNotes: '',
+      nextServiceDate: '',
+      nextServiceType: 'Oil Change'
     });
 
-    setFormState(prev => ({ ...prev, maintenanceHistory: newHistory, status: VehicleStatus.AVAILABLE, lastServiceDate: logState.date, currentMileage: logState.mileage }));
+    setFormState(prev => ({ 
+      ...prev, 
+      maintenanceHistory: newHistory, 
+      status: VehicleStatus.AVAILABLE, 
+      lastServiceDate: logState.date, 
+      currentMileage: logState.mileage,
+      maintenanceNotes: '',
+      nextServiceDate: '',
+      nextServiceType: 'Oil Change'
+    }));
     setLogState({
       date: new Date().toISOString().split('T')[0],
       type: 'Oil Change',
@@ -574,8 +586,11 @@ const Vehicles: React.FC = () => {
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
+                        const isMaintenance = vehicle.status === VehicleStatus.MAINTENANCE;
                         updateVehicle(vehicle.id, { 
-                          status: vehicle.status === VehicleStatus.MAINTENANCE ? VehicleStatus.AVAILABLE : VehicleStatus.MAINTENANCE 
+                          status: isMaintenance ? VehicleStatus.AVAILABLE : VehicleStatus.MAINTENANCE,
+                          // If marking as ready, also clear maintenance notes
+                          ...(isMaintenance ? { maintenanceNotes: '' } : {})
                         });
                       }}
                       className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors border ${
