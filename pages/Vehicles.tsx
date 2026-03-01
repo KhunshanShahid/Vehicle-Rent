@@ -27,7 +27,8 @@ import {
   Filter,
   SlidersHorizontal,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Users
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
 import { VehicleStatus, Vehicle, VehicleCategory, MaintenanceRecord } from '../types';
@@ -46,7 +47,7 @@ const SERVICE_TYPES = [
 const VEHICLE_CATEGORIES = Object.values(VehicleCategory);
 
 const Vehicles: React.FC = () => {
-  const { vehicles, addVehicle, bulkAddVehicles, updateVehicle, settings } = useRentFlowStore();
+  const { vehicles, bookings, customers, addVehicle, bulkAddVehicles, updateVehicle, settings } = useRentFlowStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<VehicleStatus | 'ALL' | 'DUE_SOON' | 'OVERDUE'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<VehicleCategory | 'ALL'>('ALL');
@@ -57,7 +58,7 @@ const Vehicles: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'maintenance' | 'rental'>('details');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const now = new Date();
@@ -654,13 +655,19 @@ const Vehicles: React.FC = () => {
                   onClick={() => setActiveTab('details')}
                   className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'details' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
-                  General Details
+                  Specifications
                 </button>
                 <button 
-                  onClick={() => setActiveTab('history')}
-                  className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                  onClick={() => setActiveTab('maintenance')}
+                  className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'maintenance' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
-                  Maintenance Log & History
+                  Maintenance
+                </button>
+                <button 
+                  onClick={() => setActiveTab('rental')}
+                  className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'rental' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  Rental History
                 </button>
               </div>
             )}
@@ -741,6 +748,23 @@ const Vehicles: React.FC = () => {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Color Name</label>
+                      <input required type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" 
+                        value={formState.color} onChange={e => setFormState({...formState, color: e.target.value})} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Color Hex</label>
+                      <div className="flex gap-2">
+                        <input type="color" className="h-11 w-11 p-1 bg-gray-50 border border-gray-200 rounded-xl outline-none cursor-pointer" 
+                          value={formState.colorHex} onChange={e => setFormState({...formState, colorHex: e.target.value})} />
+                        <input type="text" className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none font-mono" 
+                          value={formState.colorHex} onChange={e => setFormState({...formState, colorHex: e.target.value})} />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="p-6 bg-blue-50/50 border border-blue-100 rounded-2xl space-y-4">
                     <h4 className="text-sm font-black text-blue-900 uppercase flex items-center gap-2">
                       <Wrench size={16} /> Schedule Next Appointment
@@ -765,7 +789,7 @@ const Vehicles: React.FC = () => {
                     {modalMode === 'add' ? 'Add Vehicle to Fleet' : 'Save General Changes'}
                   </button>
                 </form>
-              ) : (
+              ) : activeTab === 'maintenance' ? (
                 <div className="p-8 space-y-8">
                   {/* Log New Service */}
                   <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 space-y-4">
@@ -857,6 +881,59 @@ const Vehicles: React.FC = () => {
                         </div>
                       )}
                     </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-8 space-y-6">
+                  <h4 className="text-sm font-black text-gray-900 uppercase flex items-center gap-2">
+                    <Calendar size={18} className="text-blue-600" /> Rental History
+                  </h4>
+                  <div className="space-y-4">
+                    {bookings.filter(b => b.vehicleIds.includes(editingVehicleId || '')).length > 0 ? (
+                      bookings
+                        .filter(b => b.vehicleIds.includes(editingVehicleId || ''))
+                        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+                        .map(booking => {
+                          const customer = customers.find(c => c.id === booking.customerId);
+                          return (
+                            <div key={booking.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:border-blue-100 transition-colors">
+                              <div className="flex justify-between items-start">
+                                <div className="flex gap-4">
+                                  <div className="p-3 bg-blue-50 text-blue-600 rounded-xl h-fit">
+                                    <Users size={20} />
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-gray-900">{customer?.name || 'Unknown Customer'}</p>
+                                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                                      <Calendar size={12} />
+                                      {booking.startDate} to {booking.endDate}
+                                    </p>
+                                    <div className="mt-3 flex gap-2">
+                                      <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-tighter ${
+                                        booking.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' :
+                                        booking.status === 'ACTIVE' ? 'bg-blue-100 text-blue-700' :
+                                        'bg-amber-100 text-amber-700'
+                                      }`}>
+                                        {booking.status}
+                                      </span>
+                                      <span className="text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-tighter bg-gray-100 text-gray-600">
+                                        {settings.currency}{booking.totalAmount.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <ChevronRight size={18} className="text-gray-300" />
+                              </div>
+                            </div>
+                          );
+                        })
+                    ) : (
+                      <div className="py-16 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                        <Car size={48} className="mx-auto text-gray-200 mb-4" />
+                        <p className="text-lg font-bold text-gray-900">No rental history</p>
+                        <p className="text-gray-500 mt-1">This vehicle hasn't been booked yet.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
