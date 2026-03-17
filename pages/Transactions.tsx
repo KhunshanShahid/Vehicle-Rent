@@ -1,18 +1,40 @@
 
 import React, { useState } from 'react';
-import { Receipt, Search, Filter, ArrowUpRight, ArrowDownLeft, DollarSign, Wallet } from 'lucide-react';
+import { 
+  Receipt, 
+  Search, 
+  Filter, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  DollarSign, 
+  Wallet, 
+  X, 
+  Calendar, 
+  User, 
+  Hash, 
+  CreditCard, 
+  Info,
+  FileText,
+  Clock
+} from 'lucide-react';
 import { useRentFlowStore } from '../store';
-import { PaymentMethod } from '../types';
+import { PaymentMethod, Transaction } from '../types';
 
 const Transactions: React.FC = () => {
-  const { transactions, bookings, customers } = useRentFlowStore();
+  const { transactions, bookings, customers, settings } = useRentFlowStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
   const getCustomerName = (bookingId: string) => {
     const booking = bookings.find(b => b.id === bookingId);
     if (!booking) return 'N/A';
     const customer = customers.find(c => c.id === booking.customerId);
     return customer?.name || 'N/A';
+  };
+
+  const getBookingRef = (bookingId: string) => {
+    const booking = bookings.find(b => b.id === bookingId);
+    return booking ? `BK-${booking.id.toUpperCase()}` : 'N/A';
   };
 
   const stats = [
@@ -80,8 +102,16 @@ const Transactions: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {transactions.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
+              {transactions.filter(t => 
+                t.note.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                getCustomerName(t.bookingId).toLowerCase().includes(searchTerm.toLowerCase())
+              ).map((t) => (
+                <tr 
+                  key={t.id} 
+                  onClick={() => setSelectedTransaction(t)}
+                  className="hover:bg-gray-50/50 transition-colors cursor-pointer group"
+                >
                   <td className="px-6 py-4">
                     <p className="text-sm font-medium text-gray-900">{new Date(t.date).toLocaleDateString()}</p>
                     <p className="text-[10px] text-gray-400 uppercase">{new Date(t.date).toLocaleTimeString()}</p>
@@ -106,7 +136,7 @@ const Transactions: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <p className={`text-sm font-bold ${t.type === 'REFUND' ? 'text-red-600' : 'text-gray-900'}`}>
-                      {t.type === 'REFUND' ? '-' : ''}${t.amount.toLocaleString()}
+                      {t.type === 'REFUND' ? '-' : ''}{settings.currency}{t.amount.toLocaleString()}
                     </p>
                   </td>
                 </tr>
@@ -115,6 +145,114 @@ const Transactions: React.FC = () => {
           </table>
         </div>
       </div>
+      {/* Transaction Detail Modal */}
+      {selectedTransaction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${
+                  selectedTransaction.type === 'REFUND' ? 'bg-red-100 text-red-600' :
+                  selectedTransaction.type === 'DEPOSIT' ? 'bg-amber-100 text-amber-600' :
+                  'bg-emerald-100 text-emerald-600'
+                }`}>
+                  <Receipt size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Transaction Details</h3>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ID: {selectedTransaction.id}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedTransaction(null)} 
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="text-center py-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Amount</p>
+                <p className={`text-4xl font-black ${selectedTransaction.type === 'REFUND' ? 'text-red-600' : 'text-gray-900'}`}>
+                  {selectedTransaction.type === 'REFUND' ? '-' : ''}{settings.currency}{selectedTransaction.amount.toLocaleString()}
+                </p>
+                <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-white border border-gray-200 shadow-sm">
+                  <span className={`w-2 h-2 rounded-full mr-2 ${
+                    selectedTransaction.type === 'REFUND' ? 'bg-red-500' :
+                    selectedTransaction.type === 'DEPOSIT' ? 'bg-amber-500' :
+                    'bg-emerald-500'
+                  }`}></span>
+                  <span className="text-[10px] font-black uppercase text-gray-600">{selectedTransaction.type.replace('_', ' ')}</span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <Calendar size={16} className="text-gray-400" />
+                    <span className="text-xs font-bold text-gray-500">Date</span>
+                  </div>
+                  <span className="text-xs font-black text-gray-900">{new Date(selectedTransaction.date).toLocaleDateString()}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <Clock size={16} className="text-gray-400" />
+                    <span className="text-xs font-bold text-gray-500">Time</span>
+                  </div>
+                  <span className="text-xs font-black text-gray-900">{new Date(selectedTransaction.date).toLocaleTimeString()}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <User size={16} className="text-gray-400" />
+                    <span className="text-xs font-bold text-gray-500">Customer</span>
+                  </div>
+                  <span className="text-xs font-black text-gray-900">{getCustomerName(selectedTransaction.bookingId)}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <Hash size={16} className="text-gray-400" />
+                    <span className="text-xs font-bold text-gray-500">Booking Ref</span>
+                  </div>
+                  <span className="text-xs font-black text-blue-600">{getBookingRef(selectedTransaction.bookingId)}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <CreditCard size={16} className="text-gray-400" />
+                    <span className="text-xs font-bold text-gray-500">Method</span>
+                  </div>
+                  <span className="text-xs font-black text-gray-900 uppercase">{selectedTransaction.method}</span>
+                </div>
+              </div>
+
+              {selectedTransaction.note && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    <FileText size={12} />
+                    Notes
+                  </div>
+                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                    <p className="text-sm text-amber-900 font-medium leading-relaxed italic">
+                      "{selectedTransaction.note}"
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <button 
+                onClick={() => setSelectedTransaction(null)}
+                className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-black transition-all"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
