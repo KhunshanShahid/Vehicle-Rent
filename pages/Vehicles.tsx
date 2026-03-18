@@ -51,7 +51,8 @@ const Vehicles: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<VehicleStatus | 'ALL' | 'DUE_SOON' | 'OVERDUE'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<VehicleCategory | 'ALL'>('ALL');
-  const [colorFilter, setColorFilter] = useState('');
+  const [colorFilters, setColorFilters] = useState<string[]>([]);
+  const [maintenanceNotesFilter, setMaintenanceNotesFilter] = useState('');
   const [lastServiceStart, setLastServiceStart] = useState('');
   const [lastServiceEnd, setLastServiceEnd] = useState('');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -60,6 +61,58 @@ const Vehicles: React.FC = () => {
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'maintenance' | 'rental'>('details');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false);
+  const [isNotesDropdownOpen, setIsNotesDropdownOpen] = useState(false);
+  const [colorSearch, setColorSearch] = useState('');
+  const [notesSearch, setNotesSearch] = useState('');
+
+  const colorDropdownRef = useRef<HTMLDivElement>(null);
+  const notesDropdownRef = useRef<HTMLDivElement>(null);
+
+  const uniqueColors = useMemo(() => {
+    const colors = new Set<string>();
+    vehicles.forEach(v => {
+      if (v.color) colors.add(v.color);
+    });
+    return Array.from(colors).sort();
+  }, [vehicles]);
+
+  const uniqueMaintenanceNotes = useMemo(() => {
+    const notes = new Set<string>();
+    vehicles.forEach(v => {
+      if (v.maintenanceNotes) notes.add(v.maintenanceNotes);
+    });
+    return Array.from(notes).sort();
+  }, [vehicles]);
+
+  const filteredColors = uniqueColors.filter(c => 
+    c.toLowerCase().includes(colorSearch.toLowerCase())
+  );
+
+  const filteredNotes = uniqueMaintenanceNotes.filter(n => 
+    n.toLowerCase().includes(notesSearch.toLowerCase())
+  );
+
+  const toggleColor = (color: string) => {
+    setColorFilters(prev => 
+      prev.includes(color) ? prev.filter(c => c !== color) : [...prev, color]
+    );
+  };
+
+  // Close dropdowns on click outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (colorDropdownRef.current && !colorDropdownRef.current.contains(event.target as Node)) {
+        setIsColorDropdownOpen(false);
+      }
+      if (notesDropdownRef.current && !notesDropdownRef.current.contains(event.target as Node)) {
+        setIsNotesDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const now = new Date();
 
@@ -138,7 +191,8 @@ const Vehicles: React.FC = () => {
     else matchesFilter = v.status === filter;
 
     const matchesCategory = categoryFilter === 'ALL' || v.category === categoryFilter;
-    const matchesColor = !colorFilter || v.color.toLowerCase().includes(colorFilter.toLowerCase());
+    const matchesColor = colorFilters.length === 0 || colorFilters.includes(v.color);
+    const matchesMaintenanceNotes = !maintenanceNotesFilter || v.maintenanceNotes === maintenanceNotesFilter;
     
     let matchesLastService = true;
     if (lastServiceStart || lastServiceEnd) {
@@ -151,7 +205,7 @@ const Vehicles: React.FC = () => {
       }
     }
     
-    return matchesSearch && matchesFilter && matchesCategory && matchesColor && matchesLastService;
+    return matchesSearch && matchesFilter && matchesCategory && matchesColor && matchesMaintenanceNotes && matchesLastService;
   });
 
   const openAddModal = () => {
@@ -462,15 +516,118 @@ const Vehicles: React.FC = () => {
                 {VEHICLE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Color</label>
-              <input 
-                type="text" 
-                placeholder="e.g. Silver, Black"
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-bold text-gray-700"
-                value={colorFilter}
-                onChange={(e) => setColorFilter(e.target.value)}
-              />
+            <div className="space-y-1.5 relative" ref={colorDropdownRef}>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Colors</label>
+              <div 
+                onClick={() => setIsColorDropdownOpen(!isColorDropdownOpen)}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-bold text-gray-700 cursor-pointer flex justify-between items-center"
+              >
+                <span className="truncate">
+                  {colorFilters.length === 0 ? 'All Colors' : `${colorFilters.length} Selected`}
+                </span>
+                <ChevronDown size={14} className={`transition-transform ${isColorDropdownOpen ? 'rotate-180' : ''}`} />
+              </div>
+              
+              {isColorDropdownOpen && (
+                <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                  <div className="p-2 border-b border-gray-50">
+                    <div className="relative">
+                      <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input 
+                        type="text"
+                        placeholder="Search colors..."
+                        className="w-full pl-7 pr-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs outline-none focus:ring-1 focus:ring-blue-500"
+                        value={colorSearch}
+                        onChange={(e) => setColorSearch(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                    {filteredColors.length > 0 ? (
+                      filteredColors.map(color => (
+                        <div 
+                          key={color}
+                          onClick={() => toggleColor(color)}
+                          className="px-3 py-2 text-xs font-bold text-gray-700 hover:bg-blue-50 cursor-pointer flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full border border-gray-200" style={{ backgroundColor: vehicles.find(v => v.color === color)?.colorHex }}></div>
+                            {color}
+                          </div>
+                          {colorFilters.includes(color) && <CheckCircle size={12} className="text-blue-600" />}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-3 py-4 text-center text-[10px] text-gray-400 font-bold uppercase">No colors found</div>
+                    )}
+                  </div>
+                  {colorFilters.length > 0 && (
+                    <div className="p-2 border-t border-gray-50 bg-gray-50 flex justify-between items-center">
+                      <span className="text-[10px] font-black text-gray-400 uppercase">{colorFilters.length} selected</span>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setColorFilters([]); }}
+                        className="text-[10px] font-black text-blue-600 uppercase hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5 relative" ref={notesDropdownRef}>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Maintenance Notes</label>
+              <div 
+                onClick={() => setIsNotesDropdownOpen(!isNotesDropdownOpen)}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm font-bold text-gray-700 cursor-pointer flex justify-between items-center"
+              >
+                <span className="truncate">
+                  {maintenanceNotesFilter || 'All Notes'}
+                </span>
+                <ChevronDown size={14} className={`transition-transform ${isNotesDropdownOpen ? 'rotate-180' : ''}`} />
+              </div>
+
+              {isNotesDropdownOpen && (
+                <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                  <div className="p-2 border-b border-gray-50">
+                    <div className="relative">
+                      <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input 
+                        type="text"
+                        placeholder="Search notes..."
+                        className="w-full pl-7 pr-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs outline-none focus:ring-1 focus:ring-blue-500"
+                        value={notesSearch}
+                        onChange={(e) => setNotesSearch(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                    <div 
+                      onClick={() => { setMaintenanceNotesFilter(''); setIsNotesDropdownOpen(false); }}
+                      className={`px-3 py-2 text-xs font-bold hover:bg-blue-50 cursor-pointer ${!maintenanceNotesFilter ? 'text-blue-600 bg-blue-50' : 'text-gray-700'}`}
+                    >
+                      All Notes
+                    </div>
+                    {filteredNotes.length > 0 ? (
+                      filteredNotes.map(note => (
+                        <div 
+                          key={note}
+                          onClick={() => { setMaintenanceNotesFilter(note); setIsNotesDropdownOpen(false); }}
+                          className={`px-3 py-2 text-xs font-bold hover:bg-blue-50 cursor-pointer truncate ${maintenanceNotesFilter === note ? 'text-blue-600 bg-blue-50' : 'text-gray-700'}`}
+                          title={note}
+                        >
+                          {note}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-3 py-4 text-center text-[10px] text-gray-400 font-bold uppercase">No notes found</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Last Service From</label>
@@ -493,7 +650,8 @@ const Vehicles: React.FC = () => {
                 <button 
                   onClick={() => {
                     setCategoryFilter('ALL');
-                    setColorFilter('');
+                    setColorFilters([]);
+                    setMaintenanceNotesFilter('');
                     setLastServiceStart('');
                     setLastServiceEnd('');
                   }}
@@ -618,7 +776,8 @@ const Vehicles: React.FC = () => {
                setFilter('ALL'); 
                setSearchTerm(''); 
                setCategoryFilter('ALL');
-               setColorFilter('');
+               setColorFilters([]);
+               setMaintenanceNotesFilter('');
                setLastServiceStart('');
                setLastServiceEnd('');
              }}
