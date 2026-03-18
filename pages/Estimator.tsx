@@ -49,29 +49,51 @@ const Estimator: React.FC = () => {
               <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center font-bold">1</span>
               Select Vehicles for Package
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
               {vehicles.map(v => (
                 <button
                   key={v.id}
                   onClick={() => toggleVehicle(v.id)}
-                  className={`flex items-center gap-4 p-3 rounded-2xl border-2 transition-all text-left group ${
+                  className={`flex items-center gap-4 p-4 rounded-3xl border-2 transition-all text-left group relative ${
                     selectedVehicleIds.includes(v.id) 
-                      ? 'border-blue-600 bg-blue-50/50' 
-                      : 'border-gray-50 bg-gray-50 hover:border-gray-200'
+                      ? 'border-blue-600 bg-blue-50/50 ring-4 ring-blue-600/10 scale-[1.02] shadow-lg shadow-blue-100' 
+                      : 'border-gray-50 bg-gray-50 hover:border-gray-200 hover:bg-white hover:shadow-md'
                   }`}
                 >
-                  <div className="relative">
-                    <img src={v.image} className="w-12 h-12 rounded-lg object-cover bg-gray-200" alt={v.model} />
+                  <div className="relative flex-shrink-0">
+                    <img 
+                      src={v.image || `https://picsum.photos/seed/${v.id}/200/150`} 
+                      className={`w-24 h-16 rounded-2xl object-cover bg-gray-200 shadow-sm transition-all duration-300 ${
+                        selectedVehicleIds.includes(v.id) ? 'scale-105 brightness-110' : 'group-hover:scale-105'
+                      }`} 
+                      alt={v.model} 
+                      referrerPolicy="no-referrer"
+                    />
                     {selectedVehicleIds.includes(v.id) && (
-                      <div className="absolute -top-2 -right-2 bg-blue-600 text-white rounded-full p-0.5">
-                        <CheckCircle2 size={12} />
+                      <div className="absolute -top-2 -right-2 bg-blue-600 text-white rounded-full p-1.5 shadow-lg border-2 border-white animate-in zoom-in-50">
+                        <CheckCircle2 size={16} />
                       </div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-gray-900 truncate">{v.brand} {v.model}</p>
-                    <p className="text-xs text-blue-600 font-bold">${v.dailyRate}/day</p>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
+                        selectedVehicleIds.includes(v.id) ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+                      }`}>
+                        {v.category}
+                      </span>
+                    </div>
+                    <p className="text-sm font-black text-gray-900 truncate leading-tight">{v.brand} {v.model}</p>
+                    <div className="flex items-center gap-1 mt-1.5">
+                      <span className="text-sm font-black text-blue-600">{settings.currency}{v.dailyRate.toLocaleString()}</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">/ day</span>
+                    </div>
                   </div>
+                  
+                  {/* Selection Indicator Bar */}
+                  {selectedVehicleIds.includes(v.id) && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-blue-600 rounded-r-full"></div>
+                  )}
                 </button>
               ))}
             </div>
