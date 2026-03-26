@@ -29,7 +29,8 @@ const defaultSettings: RentalSettings = {
   currency: '$',
   companyName: 'RentFlow Elite Fleet',
   companyEmail: 'ops@rentflow.io',
-  companyAddress: '123 Enterprise Way, Silicon Valley, CA'
+  companyAddress: '123 Enterprise Way, Silicon Valley, CA',
+  technicianPhone: '+15550123456'
 };
 
 const getFutureDate = (days: number) => {

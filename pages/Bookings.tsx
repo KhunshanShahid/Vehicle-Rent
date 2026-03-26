@@ -20,10 +20,12 @@ import {
   ShieldCheck,
   Info,
   CheckCircle,
-  FileSignature
+  FileSignature,
+  Send
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
 import { BookingStatus, PaymentStatus, PaymentMethod, VehicleStatus, Booking, DamageEntry } from '../types';
+import { sendSMS } from '../services/smsService';
 
 const COMMON_DAMAGES = [
   'Bumper Scratches',
@@ -146,7 +148,26 @@ const Bookings: React.FC = () => {
     }));
   };
 
-  const handleSaveBooking = (e: React.FormEvent) => {
+  const handleSendBookingSMS = async (booking: Booking) => {
+    const customer = customers.find(c => c.id === booking.customerId);
+    if (!customer || !customer.phone) {
+      alert("Customer phone number not found.");
+      return;
+    }
+
+    const rentedVehicles = vehicles.filter(v => booking.vehicleIds.includes(v.id));
+    const vehicleNames = rentedVehicles.map(v => `${v.brand} ${v.model}`).join(", ");
+    const message = `Booking Confirmation: Hello ${customer.name}, your reservation for ${vehicleNames} from ${new Date(booking.startDate).toLocaleDateString()} to ${new Date(booking.endDate).toLocaleDateString()} is confirmed. Total: ${settings.currency}${booking.totalAmount.toLocaleString()}. Thank you for choosing ${settings.companyName}!`;
+
+    const result = await sendSMS(customer.phone, message);
+    if (result.success) {
+      alert(`SMS sent successfully to ${customer.name}! (SID: ${result.sid})`);
+    } else {
+      alert(`Failed to send SMS: ${result.error}`);
+    }
+  };
+
+  const handleSaveBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.vehicleIds.length === 0 || !formData.customerId || !formData.startDate || !formData.endDate) return;
 
@@ -165,13 +186,22 @@ const Bookings: React.FC = () => {
     }
 
     if (modalMode === 'create') {
-      addBooking({
+      const newBooking = {
         ...formData,
         status: BookingStatus.RESERVED,
         totalAmount: liveQuote.total,
         paymentStatus: PaymentStatus.PENDING,
         damageNotes: '',
-      });
+      };
+      addBooking(newBooking);
+      
+      // Automatically send SMS for new bookings
+      const customer = customers.find(c => c.id === formData.customerId);
+      if (customer && customer.phone) {
+        const vehicleNames = vehicles.filter(v => formData.vehicleIds.includes(v.id)).map(v => `${v.brand} ${v.model}`).join(", ");
+        const message = `Booking Confirmation: Hello ${customer.name}, your reservation for ${vehicleNames} from ${new Date(formData.startDate).toLocaleDateString()} to ${new Date(formData.endDate).toLocaleDateString()} is confirmed. Total: ${settings.currency}${liveQuote.total.toLocaleString()}. Thank you for choosing ${settings.companyName}!`;
+        sendSMS(customer.phone, message);
+      }
     } else if (editingBookingId) {
       updateBooking(editingBookingId, {
         ...formData,
@@ -304,6 +334,9 @@ const Bookings: React.FC = () => {
                         </button>
                         <button onClick={() => openEditModal(booking)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
                           <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => handleSendBookingSMS(booking)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="Send SMS Confirmation">
+                          <Send size={16} />
                         </button>
                         {booking.status === BookingStatus.RESERVED && (
                           <button onClick={() => setPosActionBooking({ booking, type: 'checkout' })} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700">

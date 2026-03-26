@@ -50,6 +50,7 @@ export interface RentalSettings {
   companyName: string;
   companyEmail: string;
   companyAddress: string;
+  technicianPhone: string;
 }
 
 export interface Transaction {

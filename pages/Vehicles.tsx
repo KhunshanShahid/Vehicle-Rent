@@ -28,10 +28,12 @@ import {
   SlidersHorizontal,
   ChevronDown,
   ChevronUp,
-  Users
+  Users,
+  Send
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
 import { VehicleStatus, Vehicle, VehicleCategory, MaintenanceRecord } from '../types';
+import { sendSMS } from '../services/smsService';
 
 const SERVICE_TYPES = [
   'Oil Change',
@@ -241,6 +243,17 @@ const Vehicles: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleNotifyTechnician = async (vehicle: any) => {
+    const message = `Maintenance Alert: ${vehicle.brand} ${vehicle.model} (${vehicle.plateNumber}) is ${vehicle.isOverdue ? 'OVERDUE' : 'DUE SOON'} for ${vehicle.nextServiceType}. Current Mileage: ${vehicle.currentMileage} KM.`;
+    
+    const result = await sendSMS(settings.technicianPhone, message);
+    if (result.success) {
+      alert(`Technician notified successfully via SMS! (SID: ${result.sid})`);
+    } else {
+      alert(`Failed to notify technician: ${result.error}`);
+    }
+  };
+
   const handleSaveVehicle = (e: React.FormEvent) => {
     e.preventDefault();
     if (formState.brand && formState.model && formState.plateNumber) {
@@ -448,6 +461,16 @@ const Vehicles: React.FC = () => {
                     {alert.nextServiceType} • {alert.isOverdue ? `${Math.abs(alert.daysToService)}d overdue` : `In ${alert.daysToService}d`}
                   </p>
                 </div>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNotifyTechnician(alert);
+                  }}
+                  className="p-2 bg-white border border-gray-200 text-blue-600 rounded-xl hover:bg-blue-50 transition-all shadow-sm"
+                  title="Notify Technician via SMS"
+                >
+                  <Send size={16} />
+                </button>
                 <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-400" />
               </div>
             ))}
