@@ -15,14 +15,20 @@ import {
   CreditCard, 
   Info,
   FileText,
-  Clock
+  Clock,
+  ChevronDown
 } from 'lucide-react';
 import { useRentFlowStore } from '../store';
 import { PaymentMethod, Transaction } from '../types';
 
+const TRANSACTION_TYPES = ['RENTAL_FEE', 'DEPOSIT', 'REFUND', 'EXTRA_FEE'];
+const PAYMENT_METHODS = Object.values(PaymentMethod);
+
 const Transactions: React.FC = () => {
   const { transactions, bookings, customers, settings } = useRentFlowStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [methodFilter, setMethodFilter] = useState<PaymentMethod | 'ALL'>('ALL');
+  const [typeFilter, setTypeFilter] = useState<Transaction['type'] | 'ALL'>('ALL');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
   const getCustomerName = (bookingId: string) => {
@@ -85,9 +91,49 @@ const Transactions: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
-            <Filter size={16} /> All Methods
-          </button>
+          <div className="flex gap-2">
+            <div className="relative">
+              <select 
+                className="appearance-none pl-4 pr-10 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as any)}
+              >
+                <option value="ALL">All Types</option>
+                {TRANSACTION_TYPES.map(type => (
+                  <option key={type} value={type}>{type.replace('_', ' ')}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+            </div>
+            
+            <div className="relative">
+              <select 
+                className="appearance-none pl-4 pr-10 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                value={methodFilter}
+                onChange={(e) => setMethodFilter(e.target.value as any)}
+              >
+                <option value="ALL">All Methods</option>
+                {PAYMENT_METHODS.map(method => (
+                  <option key={method} value={method}>{method}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+            </div>
+
+            {(searchTerm || methodFilter !== 'ALL' || typeFilter !== 'ALL') && (
+              <button 
+                onClick={() => {
+                  setSearchTerm('');
+                  setMethodFilter('ALL');
+                  setTypeFilter('ALL');
+                }}
+                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                title="Clear Filters"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -102,11 +148,15 @@ const Transactions: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {transactions.filter(t => 
-                t.note.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                getCustomerName(t.bookingId).toLowerCase().includes(searchTerm.toLowerCase())
-              ).map((t) => (
+              {transactions.filter(t => {
+                const matchesSearch = t.note.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                    t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    getCustomerName(t.bookingId).toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesMethod = methodFilter === 'ALL' || t.method === methodFilter;
+                const matchesType = typeFilter === 'ALL' || t.type === typeFilter;
+                
+                return matchesSearch && matchesMethod && matchesType;
+              }).map((t) => (
                 <tr 
                   key={t.id} 
                   onClick={() => setSelectedTransaction(t)}
