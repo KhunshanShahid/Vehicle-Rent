@@ -56,6 +56,7 @@ const Bookings: React.FC = () => {
   const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
   const [posActionBooking, setPosActionBooking] = useState<{booking: Booking, type: 'checkout' | 'checkin' | 'pay' | 'contract'} | null>(null);
   const [vehicleSearch, setVehicleSearch] = useState('');
+  const [signatureName, setSignatureName] = useState('');
 
   // New/Edit Booking State
   const [formData, setFormData] = useState({
@@ -261,8 +262,16 @@ const Bookings: React.FC = () => {
   };
 
   const signAgreement = (bookingId: string) => {
-    updateBooking(bookingId, { contractSignedDate: new Date().toISOString() });
+    if (!signatureName.trim()) {
+      alert("Please provide a digital signature (Full Name).");
+      return;
+    }
+    updateBooking(bookingId, { 
+      contractSignedDate: new Date().toISOString(),
+      notes: (bookings.find(b => b.id === bookingId)?.notes || '') + `\n[Digitally Signed by ${signatureName} on ${new Date().toLocaleString()}]`
+    });
     alert("Agreement Digitally Signed Successfully");
+    setSignatureName('');
     setPosActionBooking(null);
   };
 
@@ -639,12 +648,20 @@ const Bookings: React.FC = () => {
                     {/* Signature Area */}
                     <div className="pt-24 grid grid-cols-2 gap-24">
                        <div className="space-y-6">
-                         <div className="border-b-2 border-gray-300 h-16 relative">
+                         <div className="border-b-2 border-gray-300 h-16 relative flex items-end pb-2">
                             <span className="absolute bottom-[-24px] left-0 text-[10px] font-black uppercase text-gray-400">Signature of Renter (Lessee)</span>
-                            {posActionBooking.booking.contractSignedDate && (
+                            {posActionBooking.booking.contractSignedDate ? (
                               <div className="absolute inset-0 flex items-center justify-center font-bold text-blue-600 opacity-50 transform -rotate-12 uppercase text-lg border-2 border-blue-600 px-4 py-1 rounded-lg">
                                 Digitally Signed
                               </div>
+                            ) : (
+                              <input 
+                                type="text"
+                                placeholder="Type Full Name to Sign"
+                                className="w-full bg-transparent border-none outline-none font-serif italic text-xl text-blue-900 placeholder:text-gray-300 no-print"
+                                value={signatureName}
+                                onChange={(e) => setSignatureName(e.target.value)}
+                              />
                             )}
                          </div>
                          <p className="text-[10px] font-bold text-gray-400">DATE: {posActionBooking.booking.contractSignedDate ? new Date(posActionBooking.booking.contractSignedDate).toLocaleDateString() : '_________________'}</p>
