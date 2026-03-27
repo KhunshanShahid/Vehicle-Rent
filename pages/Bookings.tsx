@@ -57,6 +57,58 @@ const Bookings: React.FC = () => {
   const [posActionBooking, setPosActionBooking] = useState<{booking: Booking, type: 'checkout' | 'checkin' | 'pay' | 'contract'} | null>(null);
   const [vehicleSearch, setVehicleSearch] = useState('');
   const [signatureName, setSignatureName] = useState('');
+  const [isCheckingReminders, setIsCheckingReminders] = useState(false);
+
+  // Automated SMS Reminders Logic
+  useEffect(() => {
+    const checkUpcomingBookings = async () => {
+      if (isCheckingReminders) return;
+      setIsCheckingReminders(true);
+
+      const now = new Date();
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      
+      const upcomingBookings = bookings.filter(b => {
+        if (b.status !== BookingStatus.RESERVED || b.reminderSent) return false;
+        const startDate = new Date(b.startDate);
+        // If booking starts within the next 24 hours
+        return startDate > now && startDate <= tomorrow;
+      });
+
+      if (upcomingBookings.length > 0) {
+        console.log(`Found ${upcomingBookings.length} upcoming bookings for reminders.`);
+        
+        for (const booking of upcomingBookings) {
+          const customer = customers.find(c => c.id === booking.customerId);
+          if (customer && customer.phone) {
+            const rentedVehicles = vehicles.filter(v => booking.vehicleIds.includes(v.id));
+            const vehicleNames = rentedVehicles.map(v => `${v.brand} ${v.model}`).join(", ");
+            const message = `Rental Reminder: Hello ${customer.name}, your reservation for ${vehicleNames} starts tomorrow, ${new Date(booking.startDate).toLocaleDateString()}. We look forward to seeing you at ${booking.fromLocation}!`;
+            
+            try {
+              const result = await sendSMS(customer.phone, message);
+              if (result.success) {
+                updateBooking(booking.id, { reminderSent: true });
+                console.log(`Reminder sent to ${customer.name} for booking ${booking.id}`);
+              } else {
+                console.error(`Failed to send reminder to ${customer.name}: ${result.error}`);
+              }
+            } catch (err) {
+              console.error(`Error sending reminder for booking ${booking.id}:`, err);
+            }
+            // Small delay between SMS to avoid rate limits
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+      setIsCheckingReminders(false);
+    };
+
+    // Run check on mount and then every hour
+    checkUpcomingBookings();
+    const interval = setInterval(checkUpcomingBookings, 3600000);
+    return () => clearInterval(interval);
+  }, [bookings, customers, vehicles, updateBooking, isCheckingReminders]);
 
   // New/Edit Booking State
   const [formData, setFormData] = useState({
@@ -162,6 +214,7 @@ const Bookings: React.FC = () => {
 
     const result = await sendSMS(customer.phone, message);
     if (result.success) {
+      updateBooking(booking.id, { reminderSent: true });
       alert(`SMS sent successfully to ${customer.name}! (SID: ${result.sid})`);
     } else {
       alert(`Failed to send SMS: ${result.error}`);
@@ -280,7 +333,13 @@ const Bookings: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bookings & Operations</h1>
-          <p className="text-gray-500">Managing {bookings.length} rental packages.</p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-gray-500">Managing {bookings.length} rental packages.</p>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase border border-blue-100 animate-pulse">
+              <Send size={10} />
+              Reminders Active
+            </div>
+          </div>
         </div>
         <button 
           onClick={() => { resetForm(); setIsModalOpen(true); }}
@@ -332,6 +391,11 @@ const Bookings: React.FC = () => {
                         {booking.contractSignedDate && (
                           <div className="text-emerald-500" title={`Signed on ${new Date(booking.contractSignedDate).toLocaleDateString()}`}>
                             <CheckCircle size={14} />
+                          </div>
+                        )}
+                        {booking.reminderSent && (
+                          <div className="text-blue-500" title="SMS Reminder Sent">
+                            <Send size={12} />
                           </div>
                         )}
                       </div>

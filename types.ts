@@ -129,4 +129,5 @@ export interface Booking {
   endMileage?: number;
   endFuelLevel?: string;
   contractSignedDate?: string;
+  reminderSent?: boolean;
 }
