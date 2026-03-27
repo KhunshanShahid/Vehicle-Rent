@@ -405,6 +405,15 @@ const Bookings: React.FC = () => {
                         <button onClick={() => setPosActionBooking({ booking, type: 'contract' })} className="p-2 text-gray-400 hover:text-blue-600 transition-colors" title="View Contract">
                           <FileText size={18} />
                         </button>
+                        {!booking.contractSignedDate && booking.status === BookingStatus.RESERVED && (
+                          <button 
+                            onClick={() => setPosActionBooking({ booking, type: 'contract' })}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 text-xs font-bold rounded-lg hover:bg-amber-200 transition-all"
+                          >
+                            <FileSignature size={14} />
+                            Sign
+                          </button>
+                        )}
                         <button onClick={() => openEditModal(booking)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
                           <Edit2 size={16} />
                         </button>
