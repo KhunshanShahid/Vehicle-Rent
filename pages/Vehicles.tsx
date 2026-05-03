@@ -160,6 +160,10 @@ const Vehicles: React.FC = () => {
     image: '',
     color: 'Silver',
     colorHex: '#C0C0C0',
+    engineSize: '',
+    fuelType: 'Petrol',
+    transmission: 'Automatic',
+    doorCount: 4,
     lastServiceDate: '',
     nextServiceDate: '',
     nextServiceType: 'Oil Change',
@@ -225,6 +229,10 @@ const Vehicles: React.FC = () => {
       image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=400&h=300&auto=format&fit=crop',
       color: 'Silver',
       colorHex: '#C0C0C0',
+      engineSize: '',
+      fuelType: 'Petrol',
+      transmission: 'Automatic',
+      doorCount: 4,
       lastServiceDate: new Date().toISOString().split('T')[0],
       nextServiceDate: '',
       nextServiceType: 'Oil Change',
@@ -730,6 +738,16 @@ const Vehicles: React.FC = () => {
                         <span className="text-xs font-mono text-gray-400 uppercase bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
                           {vehicle.plateNumber}
                         </span>
+                        {vehicle.engineSize && (
+                          <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                            {vehicle.engineSize}
+                          </span>
+                        )}
+                        {vehicle.fuelType && (
+                          <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                            {vehicle.fuelType}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
@@ -914,6 +932,40 @@ const Vehicles: React.FC = () => {
                       <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Plate Number</label>
                       <input required type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none font-mono font-bold" 
                         value={formState.plateNumber} onChange={e => setFormState({...formState, plateNumber: e.target.value})} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Engine Size</label>
+                      <input type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" placeholder="e.g. 2.0L"
+                        value={formState.engineSize} onChange={e => setFormState({...formState, engineSize: e.target.value})} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Fuel Type</label>
+                      <select className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none font-bold text-gray-700"
+                        value={formState.fuelType} onChange={e => setFormState({...formState, fuelType: e.target.value})}>
+                        <option value="Petrol">Petrol</option>
+                        <option value="Diesel">Diesel</option>
+                        <option value="Electric">Electric</option>
+                        <option value="Hybrid">Hybrid</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Transmission</label>
+                      <select className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none font-bold text-gray-700"
+                        value={formState.transmission} onChange={e => setFormState({...formState, transmission: e.target.value})}>
+                        <option value="Automatic">Automatic</option>
+                        <option value="Manual">Manual</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Doors</label>
+                      <input type="number" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none"
+                        value={formState.doorCount} onChange={e => setFormState({...formState, doorCount: Number(e.target.value)})} />
                     </div>
                   </div>
 

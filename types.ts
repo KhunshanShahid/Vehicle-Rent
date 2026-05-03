@@ -85,6 +85,10 @@ export interface Vehicle {
   currentMileage: number;
   color: string;
   colorHex: string;
+  engineSize?: string;
+  fuelType?: string;
+  transmission?: string;
+  doorCount?: number;
   // Maintenance tracking
   lastServiceDate?: string;
   nextServiceDate?: string;
